@@ -1,0 +1,143 @@
+version: "3.1"
+
+rules:
+
+- rule: Greet
+  steps:
+    - intent: greet
+    - action: utter_greet
+
+- rule: Goodbye
+  steps:
+    - intent: goodbye
+    - action: utter_goodbye
+
+- rule: Bot challenge
+  steps:
+    - intent: bot_challenge
+    - action: utter_bot_challenge
+
+- rule: Out of scope
+  steps:
+    - intent: out_of_scope
+    - action: utter_out_of_scope
+
+- rule: Fallback to default
+  steps:
+    - intent: nlu_fallback
+    - action: utter_default
+
+# ── Queue ──────────────────────────────────────────────────────────────────
+- rule: Join queue
+  steps:
+    - intent: join_queue
+    - action: action_join_queue
+
+- rule: Cancel queue
+  steps:
+    - intent: cancel_queue
+    - action: action_cancel_queue
+
+- rule: Check queue status
+  steps:
+    - intent: check_queue_status
+    - action: action_check_queue_status
+
+- rule: Get queue number
+  steps:
+    - intent: get_queue_number
+    - action: utter_get_queue_number
+
+- rule: Get wait time
+  steps:
+    - intent: estimated_wait_time
+    - action: action_get_estimated_wait_time
+
+# ── Clinic info ───────────────────────────────────────────────────────────
+- rule: Clinic hours
+  steps:
+    - intent: clinic_hours
+    - action: action_get_clinic_hours
+
+- rule: Clinic location
+  steps:
+    - intent: get_clinic_location
+    - action: utter_get_clinic_location
+
+- rule: Nearest clinic
+  steps:
+    - intent: nearest_clinic
+    - action: action_get_clinic_recommendations
+
+- rule: Clinic services
+  steps:
+    - intent: get_clinic_services
+    - action: action_get_clinic_services
+
+- rule: Clinic recommendation
+  steps:
+    - intent: recommendation_request
+    - action: action_get_clinic_recommendations
+
+# ── Appointments ──────────────────────────────────────────────────────────
+- rule: Appointment inquiry
+  steps:
+    - intent: appointment_inquiry
+    - action: utter_appointment_inquiry
+
+- rule: Book appointment
+  steps:
+    - intent: book_appointment
+    - action: utter_book_appointment
+
+- rule: Cancel appointment
+  steps:
+    - intent: cancel_appointment
+    - action: utter_cancel_appointment
+
+- rule: Reschedule appointment
+  steps:
+    - intent: reschedule_appointment
+    - action: utter_reschedule_appointment
+
+# ── Support ───────────────────────────────────────────────────────────────
+- rule: Human assistance
+  steps:
+    - intent: human_assistance
+    - action: action_escalate_to_staff
+
+- rule: Complaint
+  steps:
+    - intent: complaint
+    - action: action_escalate_to_staff
+
+# ── FAQ ───────────────────────────────────────────────────────────────────
+- rule: Requirements
+  steps:
+    - intent: ask_requirements
+    - action: utter_ask_requirements
+
+- rule: Payment
+  steps:
+    - intent: ask_payment
+    - action: utter_ask_payment
+
+- rule: Results
+  steps:
+    - intent: ask_results
+    - action: utter_ask_results
+
+- rule: PhilHealth
+  steps:
+    - intent: ask_philhealth
+    - action: utter_ask_philhealth
+
+- rule: HMO
+  steps:
+    - intent: ask_hmo
+    - action: utter_ask_hmo
+
+- rule: General health FAQ
+  steps:
+    - intent: general_health_faq
+    - action: utter_general_health_faq

@@ -1,0 +1,207 @@
+version: "3.1"
+
+stories:
+
+# ── Queue Enrollment Flow ────────────────────────────────────────────────────
+- story: queue enrollment - greet then join
+  steps:
+    - intent: greet
+    - action: utter_greet
+    - intent: join_queue
+    - action: action_join_queue
+
+- story: queue enrollment - confirm join
+  steps:
+    - intent: join_queue
+    - action: action_join_queue
+    - intent: check_queue_status
+    - action: action_check_queue_status
+
+- story: queue enrollment with wait time
+  steps:
+    - intent: join_queue
+    - action: action_join_queue
+    - intent: estimated_wait_time
+    - action: action_get_estimated_wait_time
+
+- story: cancel queue with confirmation
+  steps:
+    - intent: cancel_queue
+    - action: action_cancel_queue
+    - intent: affirm
+    - action: utter_queue_cancelled_confirmed
+
+- story: cancel queue denied
+  steps:
+    - intent: cancel_queue
+    - action: action_cancel_queue
+    - intent: deny
+    - action: utter_queue_cancel_aborted
+
+# ── Queue Status Flow ─────────────────────────────────────────────────────────
+- story: check queue then wait time
+  steps:
+    - intent: check_queue_status
+    - action: action_check_queue_status
+    - intent: estimated_wait_time
+    - action: action_get_estimated_wait_time
+
+# ── Wait Time Flow ────────────────────────────────────────────────────────────
+- story: wait time after greeting
+  steps:
+    - intent: greet
+    - action: utter_greet
+    - intent: estimated_wait_time
+    - action: action_get_estimated_wait_time
+
+# ── Clinic Recommendation Flow ────────────────────────────────────────────────
+- story: recommendation with service context
+  steps:
+    - intent: get_clinic_services
+    - action: action_get_clinic_services
+    - intent: recommendation_request
+    - action: action_get_clinic_recommendations
+
+- story: recommendation then join queue
+  steps:
+    - intent: recommendation_request
+    - action: action_get_clinic_recommendations
+    - intent: join_queue
+    - action: action_join_queue
+
+- story: recommendation then appointment
+  steps:
+    - intent: recommendation_request
+    - action: action_get_clinic_recommendations
+    - intent: book_appointment
+    - action: utter_book_appointment
+
+- story: nearest clinic then wait time
+  steps:
+    - intent: nearest_clinic
+    - action: action_get_clinic_recommendations
+    - intent: estimated_wait_time
+    - action: action_get_estimated_wait_time
+
+# ── Appointment Flow ──────────────────────────────────────────────────────────
+- story: book appointment with slot check
+  steps:
+    - intent: book_appointment
+    - action: utter_book_appointment
+    - intent: affirm
+    - action: action_get_available_slots
+
+- story: appointment then wait time
+  steps:
+    - intent: book_appointment
+    - action: utter_book_appointment
+    - intent: estimated_wait_time
+    - action: action_get_estimated_wait_time
+
+- story: services then book appointment
+  steps:
+    - intent: get_clinic_services
+    - action: action_get_clinic_services
+    - intent: book_appointment
+    - action: utter_book_appointment
+
+- story: requirements then book
+  steps:
+    - intent: ask_requirements
+    - action: utter_ask_requirements
+    - intent: book_appointment
+    - action: utter_book_appointment
+
+- story: hours then appointment
+  steps:
+    - intent: clinic_hours
+    - action: action_get_clinic_hours
+    - intent: book_appointment
+    - action: utter_book_appointment
+
+# ── Clarification Flows ───────────────────────────────────────────────────────
+- story: clarification after fallback
+  steps:
+    - intent: nlu_fallback
+    - action: utter_default
+    - intent: greet
+    - action: utter_greet
+
+- story: clarification after fallback then queue
+  steps:
+    - intent: nlu_fallback
+    - action: utter_default
+    - intent: check_queue_status
+    - action: action_check_queue_status
+
+- story: out of scope recovery
+  steps:
+    - intent: out_of_scope
+    - action: utter_out_of_scope
+    - intent: book_appointment
+    - action: utter_book_appointment
+
+- story: out of scope then escalate
+  steps:
+    - intent: out_of_scope
+    - action: utter_out_of_scope
+    - intent: human_assistance
+    - action: action_escalate_to_staff
+
+# ── Human Assistance / Escalation Flow ───────────────────────────────────────
+- story: complaint with context
+  steps:
+    - intent: greet
+    - action: utter_greet
+    - intent: complaint
+    - action: action_escalate_to_staff
+
+- story: multiple fallbacks then escalate
+  steps:
+    - intent: nlu_fallback
+    - action: utter_default
+    - intent: nlu_fallback
+    - action: utter_default
+    - intent: human_assistance
+    - action: action_escalate_to_staff
+
+# ── Clinic Information Flows ──────────────────────────────────────────────────
+- story: hours then location
+  steps:
+    - intent: clinic_hours
+    - action: action_get_clinic_hours
+    - intent: get_clinic_location
+    - action: utter_get_clinic_location
+
+- story: location then queue
+  steps:
+    - intent: get_clinic_location
+    - action: utter_get_clinic_location
+    - intent: join_queue
+    - action: action_join_queue
+
+# ── Failed Input Recovery ─────────────────────────────────────────────────────
+- story: failed input recovery - affirm after fallback
+  steps:
+    - intent: nlu_fallback
+    - action: utter_default
+    - intent: affirm
+    - action: utter_clarification_prompt
+
+- story: failed input recovery - deny after fallback
+  steps:
+    - intent: nlu_fallback
+    - action: utter_default
+    - intent: deny
+    - action: utter_goodbye
+
+- story: long conversation with fallback
+  steps:
+    - intent: greet
+    - action: utter_greet
+    - intent: estimated_wait_time
+    - action: action_get_estimated_wait_time
+    - intent: nlu_fallback
+    - action: utter_default
+    - intent: recommendation_request
+    - action: action_get_clinic_recommendations

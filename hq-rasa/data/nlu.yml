@@ -1,0 +1,817 @@
+version: "3.1"
+
+nlu:
+
+# ── Core Greetings / Closings ────────────────────────────────────────────────
+- intent: greet
+  examples: |
+    - hi
+    - hello
+    - hey
+    - good morning
+    - good afternoon
+    - good evening
+    - hi there
+    - hello there
+    - howdy
+    - hey there
+    - greetings
+    - what's up
+    - sup
+    - musta
+    - kumusta
+    - magandang umaga
+    - magandang hapon
+    - magandang gabi
+    - gud am
+    - gud pm
+    - hello hq
+    - hi assistant
+    - start
+    - hello po
+    - hi po
+    - good morning po
+    - kamusta
+    - hey po
+    - hi can you help me
+    - hello i need help
+    - help
+    - need help
+    - i need assistance
+    - can you help me
+    - makakatulong ka ba
+    - tulungan mo ako
+
+- intent: goodbye
+  examples: |
+    - bye
+    - goodbye
+    - see you
+    - see you later
+    - take care
+    - ok thanks bye
+    - that's all
+    - nothing else
+    - thank you bye
+    - salamat
+    - thanks
+    - thank you
+    - ok lang na
+    - wala na
+    - done na
+    - ok thank you
+    - thanks po
+    - salamat po
+    - sige bye
+    - cge bye
+    - ok noted thanks
+    - got it thanks
+
+- intent: affirm
+  examples: |
+    - yes
+    - yeah
+    - yep
+    - sure
+    - of course
+    - definitely
+    - ok
+    - oki
+    - okie
+    - okay
+    - sounds good
+    - correct
+    - that's right
+    - oo
+    - oo nga
+    - sige
+    - go ahead
+    - please proceed
+    - yes please
+    - oo po
+    - sige po
+    - cge po  
+    - tama
+    - confirmed
+
+- intent: deny
+  examples: |
+    - no
+    - nope
+    - not really
+    - no thanks
+    - i don't think so
+    - hindi
+    - hindi naman
+    - nah
+    - not now
+    - cancel that
+    - cancel na lang
+    - never mind
+    - nevermind
+    - hindi po
+    - wag na
+    - huwag na
+    - no need
+    - ayaw
+    - ayoko
+
+- intent: bot_challenge
+  examples: |
+    - are you a bot
+    - are you a human
+    - am i talking to a robot
+    - who are you
+    - what are you
+    - are you real
+    - are you AI
+    - are you chatgpt
+    - are you human
+    - robot ba ikaw
+    - are you an AI
+    - is this a chatbot
+    - chatbot ka ba
+    - what is your name
+    - ano pangalan mo
+    - sino ka
+    - ikaw ba ay AI
+    - tao ka ba talaga
+    - human ka ba
+    - real person ka ba
+    - machine ka ba
+    - AI ka
+    - artificial intelligence ka ba
+    - automated ka ba
+    - sino ang kausap ko
+    - ano ka
+    - bot talaga
+    - robot ka
+    - ikaw ba yung chatbot
+    - may tao bang sumasagot
+    - AI assistant ka ba
+    - legit na bot ka ba
+
+# ── Queue ────────────────────────────────────────────────────────────────────
+- intent: join_queue
+  examples: |
+    - I want to join the queue
+    - join queue
+    - add me to the queue
+    - put me in line
+    - get me a queue number
+    - I want to line up
+    - can I get a spot
+    - pila ako
+    - gusto kong pumila
+    - gus2 kong pumila
+    - magpapila na ako
+    - magpapalista ako
+    - sasali ako sa pila
+    - pila na ako
+    - pwsde sumali s pila
+    - pwde b sumali s pila
+    - pasali aq s q
+    - gusto q pumila
+    - p2loy aq s queue
+    - pa q nmn
+    - kumuha ng queue number
+    - I'd like to take a number
+    - sign me up for the queue
+    - can I get in line
+    - pumila na ko
+    - paano mag queue
+    - how do I queue
+    - gusto ko pumila para sa [CBC](service_name)
+    - I want to join the [laboratory](service_name) queue
+    - join queue for [X-ray](service_name)
+
+- intent: cancel_queue
+  examples: |
+    - cancel my queue
+    - remove me from the queue
+    - remove my name from the queue
+    - I want to leave the queue
+    - cancel queue number
+    - I don't want to be in line anymore
+    - exit queue
+    - cancel my spot
+    - alisin ako sa pila
+    - gusto kong umalis sa pila
+    - drop my queue
+    - I changed my mind
+    - ayaw ko na pumila
+    - cancel pila ko
+    - alis na ako sa pila
+    - hindi na ako tutuloy sa pila
+    - tanggalin yung queue ko
+    - cancel q n lng ung pila
+    - ayw q n pumila
+    - alisin aq s q
+    - wla n aq sa pila    
+    
+- intent: check_queue_status
+  examples: |
+    - what is my queue status
+    - check my queue
+    - where am I in the queue
+    - what's my queue number
+    - how many people are ahead of me
+    - queue status
+    - am i still in the queue
+    - what number am i
+    - check queue
+    - is my turn soon
+    - anong number ko na
+    - pila status
+    - how far am I in line
+    - what position am I in
+    - ilang tao pa bago sa akin
+    - check ko yung queue ko
+    - status ng queue ko
+    - where am I in line
+    - my queue
+    - active pa ba queue ko
+    - nasaan na ako sa pila
+    - pang ilan na ako sa pila
+    - pang ilan n q
+    - nsa anung num na aq
+    - ilan p bago aq
+    - chek q status q    
+
+- intent: estimated_wait_time
+  examples: |
+    - how long is the wait
+    - what is the waiting time
+    - how long do I have to wait
+    - estimated wait time
+    - how many minutes to wait
+    - wait time today
+    - is there a long queue
+    - how busy is the clinic
+    - is it crowded
+    - how long is the line
+    - gaano katagal ang pila
+    - matagal ba ang pila
+    - when will it be my turn
+    - how long until I'm called
+    - gaano katagal pa
+    - ilang minuto pa
+    - rough estimate ng wait time
+    - eta
+    - how many minutes
+    - waiting time
+    - matagal ba ngayon
+    - mabilis ba ang pila ngayon
+    - mabilis ba ang pila ngayon
+    - kelan kaya ako tatawagin
+    - ilang tao pa bago ako matawag
+    - gaano kahaba ang hintayan
+    - gno p katagal
+    - matagal p b
+    - ilang min p
+    - keln aq tatawagin
+    - my eta b
+
+- intent: get_queue_number
+  examples: |
+    - get queue number
+    - i want a queue number
+    - give me a number
+    - how do I get a queue number
+    - how to get in line
+    - assign me a queue number
+    - kumuha ng number
+    - take a number
+    - paano kumuha ng number
+    - saan kukuha ng queue number
+    - saan ako kukuha ng number
+    - pwede kumuha ng number
+    - pwd b kumuha ng number
+    - number ko saan
+    - bigyan ako ng queue number
+    - where can I get my queue number
+    - how can I receive my number
+    - san kkuha ng num
+    - pnu kkuha q num
+    - bgyan aq ng q num
+    - q number pnu
+
+# ── Clinic Info ──────────────────────────────────────────────────────────────
+- intent: clinic_hours
+  examples: |
+    - what are the clinic hours
+    - when is the clinic open
+    - operating hours
+    - what time does the clinic open
+    - what time does it close
+    - is the clinic open today
+    - is the clinic open on weekends
+    - open on saturday
+    - are you open on Sunday
+    - clinic schedule
+    - hours of operation
+    - bukas ba ngayon
+    - anong oras bukas
+    - kelan bukas
+    - clinic hours today
+    - what time open
+    - what time close
+    - schedule ng clinic
+    - open ba bukas
+    - bukas pa ba sila ngayon
+    - anong oras nagsasara
+    - until what time are you open
+    - anung oras bukas
+    - bukas p b ngaun
+    - anung oras sara
+    - keln kau open
+
+- intent: nearest_clinic
+  examples: |
+    - where is the nearest clinic
+    - find a clinic near me
+    - nearest branch
+    - closest clinic
+    - clinics nearby
+    - show me nearby clinics
+    - branch near me
+    - saan ang pinakamalapit na clinic
+    - nearest Hi-Precision
+    - where can I find a branch
+    - malapit na clinic
+    - where to find clinic
+    - find clinic
+    - clinic saan
+    - anong branch ang pinakamalapit
+    - may clinic bang malapit sa akin
+    - may malapit bang branch
+    - saan may pinakamalapit
+    - san pinakamalapit
+    - my malapit b jan
+    - anung brnch pinakamlapit
+    - clinic n malapit sakin   
+
+- intent: get_clinic_location
+  examples: |
+    - where is the clinic
+    - clinic location
+    - how to get to the clinic
+    - address of the clinic
+    - directions to the clinic
+    - show me the map
+    - clinic address
+    - saan ang clinic
+    - address
+    - location
+    - map
+    - saan kayo
+    - can you send me the clinic location
+    - san ung clinic
+    - paki send loc
+    - san banda yan
+    - anung addr nyo
+
+- intent: get_clinic_services
+  examples: |
+    - what services are available
+    - what tests can I take
+    - what does the clinic offer
+    - list of services
+    - available tests
+    - do you have x-ray
+    - do you offer ultrasound
+    - is CBC available
+    - what lab tests are available
+    - services offered
+    - what can I get tested for
+    - anong tests meron
+    - available services
+    - what tests do you do
+    - anong available
+    - services nyo
+    - anong tests ang available
+    - ano mga laboratory test ninyo
+    - may blood test ba kayo
+    - may laboratory ba kayo
+    - anong procedures ang ginagawa
+    - ano mga medical services ninyo
+    - anu2 meron n test
+    - my cbc b jan
+    - my xray b
+    - anung serv nyo
+
+# ── Appointment ──────────────────────────────────────────────────────────────
+- intent: appointment_inquiry
+  examples: |
+    - how does appointment work
+    - tell me about appointments
+    - can I book in advance
+    - do I need an appointment
+    - is walk-in available
+    - appointment or walk-in
+    - do I need to book ahead
+    - can I just walk in
+    - walk-in ba pwede
+    - kailangan bang mag-book
+    - pwede bang walk-in
+    - may appointment ba kayo
+    - how to make appointment
+    - kailangan ba magpa-schedule
+    - need p b appt
+    - nid b mg book
+    - pwde walk in
+    - kelngn p b mag book
+    - appt req b
+
+- intent: book_appointment
+  examples: |
+    - i want to book an appointment
+    - how do i book an appointment
+    - can i schedule a checkup
+    - book appointment
+    - make an appointment
+    - schedule a visit
+    - set an appointment
+    - i want to schedule a lab test
+    - how to book
+    - mag-book ng appointment
+    - gusto ko mag-book
+    - I want to reserve a slot
+    - book a slot
+    - reserve a schedule
+    - mag schedule ako
+    - i need an appointment
+    - can I book today
+    - how to book online
+    - pa book aq
+    - magpa sched aq
+    - paki book ng appt
+    - pa resrv ng slot
+
+- intent: cancel_appointment
+  examples: |
+    - cancel my appointment
+    - i want to cancel my appointment
+    - how do i cancel
+    - remove my appointment
+    - delete my booking
+    - I won't make it to my appointment
+    - cancel booking
+    - i need to cancel my schedule
+    - cancel my reservation
+    - I-cancel ang appointment ko
+    - gusto kong i-cancel ang appointment
+    - paki-cancel nung sched ko
+    - cancel ko na lng ung appointment q
+    - cancel q appointment
+    - cancel q appt
+    - cncel q sched
+    - di n aq mkakapunta
+    - alisin n ung booking q
+
+- intent: reschedule_appointment
+  examples: |
+    - reschedule my appointment
+    - change my appointment date
+    - move my appointment
+    - I want to change my schedule
+    - can I change the time
+    - reschedule booking
+    - different date please
+    - I need to move my appointment
+    - palitan ang schedule
+    - can I reschedule
+    - change my booking date
+    - reshedule my appointment
+    - pwede ilipat yung appointment
+    - palipat ng schedule
+    - ibang araw na lang sana
+    - ibang oras sana
+    - gusto ko baguhin yung sched
+    - pa-reschedule po
+    - resched q
+    - p2lip ng sched
+    - ibang oras n lng
+    - ibang araw n lng
+
+- intent: recommendation_request
+  examples: |
+    - can you recommend a clinic
+    - which clinic should I go to
+    - suggest a clinic
+    - recommend the best clinic for me
+    - which branch is best right now
+    - can you suggest a clinic with the shortest queue
+    - what clinic do you recommend
+    - suggest a branch
+    - recommend a branch near me
+    - which clinic has the shortest wait
+    - what's the best clinic to go to right now
+    - ano pong maiirerecommend nyong clinic
+    - alin ang pinakamabilis na clinic
+    - saan pinakamainam pumunta
+    - best clinic ngayon
+    - ano magandang clinic pumuntahan
+    - pwede mo ba akong bigyan ng recommendation
+    - alin dapat pumuntahan ko
+    - ano pinakamagandang branch
+    - anong branch ang irerecommend mo
+    - saan mas mabilis ang pila
+
+# ── Support ──────────────────────────────────────────────────────────────────
+- intent: human_assistance
+  examples: |
+    - can I talk to a human
+    - I need to speak to staff
+    - connect me to a person
+    - talk to a real person
+    - I want to talk to an agent
+    - I need to speak with someone
+    - transfer me to a staff member
+    - is there a live agent
+    - connect me to customer service
+    - I need human help
+    - speak to a representative
+    - can a real person help me
+    - pwede makausap ang staff
+    - gusto kong makipag-usap sa tao
+    - pakonek nga sa staff
+    - pwd makausap tao
+    - need po ng tulong ng staff
+    - can someone assist me directly
+    - pakisabi sa staff na kausapin ako
+    - gusto ko makausap ng tao hindi bot
+
+- intent: complaint
+  examples: |
+    - I want to file a complaint
+    - I have a complaint
+    - this service is bad
+    - I'm not satisfied with the service
+    - I want to report an issue
+    - I have a problem with my appointment
+    - the staff were rude to me
+    - my experience here was bad
+    - I want to complain about the wait time
+    - I want to complain about the staff
+    - report a problem
+    - reklamo ako
+    - may reklamo ako
+    - ang tagal ng pila, gusto ko magreklamo
+    - masamang serbisyo
+    - hindi ako satisfied
+    - nag reklamo ako
+    - gusto ko magsumbong
+    - yung staff ninyo bastos
+    - hindi maganda serbisyo dito
+    - gusto ko mag-report ng issue
+
+# ── Requirements / Preparation ───────────────────────────────────────────────
+- intent: ask_requirements
+  examples: |
+    - what do i need to bring
+    - requirements for the test
+    - what should I prepare
+    - do i need to fast
+    - fasting required
+    - what are the requirements
+    - what to bring
+    - do i need a prescription
+    - what documents do i need
+    - anong dalhin
+    - kailangan ba mag-fast
+    - requirements
+    - preparation
+    - what do I need
+    - anong kailangan
+    - do I need to fast before blood test
+    - magfa-fast ba ako
+    - requirements for CBC
+    - what to prepare
+    - ano kailangan dalhin
+    - ano dapat ihanda
+    - may kailangan bang document
+    - kailangan ba ng valid ID
+    - kailangan ba ng doctor request
+    - kailangan ba ng referral
+    - kailangan ba mag-fasting
+    - anu dadalhin q
+    - need b id
+    - nid b id
+    - my reqs b
+    - klngan b mag fasting
+
+- intent: ask_payment
+  examples: |
+    - how much does it cost
+    - payment methods
+    - do you accept gcash
+    - can I pay online
+    - accepted payments
+    - how do i pay
+    - cash only
+    - credit card accepted
+    - do you accept maya
+    - price list
+    - fees
+    - magkano
+    - how much
+    - presyo
+    - payment
+    - how much is x-ray
+    - magkano ang CBC
+    - bayad
+    - pwede GCash
+    - gcash ba
+    - bayad paano
+    - payment options
+    - magkano ang babayaran
+    - magkano ang test
+    - ano payment methods nyo
+    - pwede ba cash
+    - pwede ba card
+    - pwede GCash
+    - tumatanggap ba kayo ng e-wallet
+    - magkno
+    - magkano p
+    - pwde gcash
+    - card pwde b
+    - anung payment nyo
+
+- intent: ask_results
+  examples: |
+    - when will my results be ready
+    - how long for results
+    - result releasing
+    - when can I get my results
+    - how to get my test results
+    - are results available online
+    - release time
+    - kailan lalabas ang result
+    - result ko
+    - when are results out
+    - results
+    - anong oras lalabas ang result
+    - kailan ko makukuha ang result
+    - result releasing time
+    - same day ba ang result
+    - how long to get results
+    - kailan available yung result
+    - kailan ko makukuha yung result
+    - gaano katagal processing
+    - pwede online yung results
+    - ready na ba yung result ko
+    - lumabas na ba yung result
+    - keln lalabas reslt
+    - my result n b q
+    - keln makukuha result
+    - gno katagal result
+
+- intent: ask_philhealth
+  examples: |
+    - do you accept philhealth
+    - philhealth coverage
+    - is philhealth accepted
+    - philhealth benefits
+    - how to use philhealth
+    - philhealth accredited
+    - pwede bang gamitin ang philhealth
+    - philhealth
+    - PhilHealth
+    - may PhilHealth ka ba
+    - covered ng philhealth
+    - philhealth ba ito
+    - covered ba ng PhilHealth
+    - tumatanggap ba kayo ng PhilHealth
+    - may PhilHealth coverage ba
+    - PhilHealth accepted ba
+    - accredited ba kayo ng PhilHealth
+    - pwde philhealth
+    - philhealth accpt b
+    - covered b philhealth
+    - my philhealth b
+
+- intent: ask_hmo
+  examples: |
+    - do you accept HMO
+    - HMO coverage
+    - what HMOs do you accept
+    - HMO card
+    - letter of authorization
+    - LOA
+    - can I use my HMO
+    - HMO accredited
+    - HMO
+    - accepted HMOs
+    - Maxicare
+    - Medicard
+    - pwede ang HMO
+    - HMO ba pwede
+    - pwede gamitin yung HMO ko
+    - covered ba ng HMO
+    - anong HMO ang accepted
+    - tumatanggap ba kayo ng insurance
+    - HMO card pwede ba
+    - pwede company HMO
+    - pwde hmo
+    - hmo accpt b
+    - my hmo aq
+    - coverd b ng hmo
+
+# ── General Health FAQ ───────────────────────────────────────────────────────
+- intent: general_health_faq
+  examples: |
+    - what is CBC
+    - what does CBC check
+    - what is a lipid profile
+    - what is urinalysis
+    - what is ECG for
+    - what is 2D echo
+    - what is ultrasound
+    - what is creatinine
+    - what is uric acid test
+    - what is blood pressure
+    - normal blood pressure
+    - what is cholesterol test
+    - what is fasting blood sugar
+    - FBS test
+    - para saan ang CBC
+    - ano ang CBC
+    - ano chine-check sa CBC
+    - para saan ang urinalysis
+    - ano ang urinalysis
+    - ano chine-check sa urinalysis
+    - para saan ang ECG
+    - ano ang ECG
+    - para saan ang 2D echo
+    - ano ang 2D echo
+    - para saan ang ultrasound
+    - ano ang creatinine
+    - para saan ang creatinine test
+    - ano ang uric acid test
+    - para saan ang cholesterol test
+    - ano ang FBS
+    - para saan ang FBS
+    - anu b cbc
+    - para san ang cbc
+    - anu chinecheck s ua
+    - pnu ung ecg
+    - anu ung fbs
+
+# ── Out of scope ─────────────────────────────────────────────────────────────
+# Kept intentionally small — this is a representative sample, not an
+# exhaustive catalogue of "everything the bot shouldn't answer". The
+# FallbackClassifier threshold (config.yml) is what does the heavy lifting
+# for topics not seen here at all.
+- intent: out_of_scope
+  examples: |
+    - what is the weather
+    - tell me a joke
+    - what is the stock market
+    - order food
+    - play music
+    - who is the president
+    - what movie should I watch
+    - random question
+    - unrelated topic
+    - will it rain tomorrow
+    - recommend a movie
+    - make me laugh
+    - who won the game
+    - what's the latest news
+    - help me with my homework
+    - write an essay for me
+    - what is the capital of Japan
+    - give me a recipe
+    - how do I cook adobo
+    - play a song
+    - sing me a song
+    - what's the price of bitcoin
+    - can you translate this
+    - what should I wear today
+    - ano ulam
+    - anong magandang movie
+    - joke naman
+    - anong weather ngayon
+    - sino nanalo sa game
+    - is there a typhoon coming
+    - what time is sunset
+    - what time is it
+    - set an alarm for me
+    - remind me at 8pm
+    - give me a countdown
+    - what should I cook today
+    - how do I cook sinigang
+    - how do I make adobo
+    - order food for me
+    - where can I buy pizza
+    - what restaurant is open
+    - how much is a burger
+    - recommend a coffee shop
+    - what happened in the news
+    - what is trending today
+    - tell me about politics
+    - what's bitcoin worth
+    - how do I invest
+    - help me with my math
+    - solve this equation

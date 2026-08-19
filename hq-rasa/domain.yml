@@ -1,0 +1,195 @@
+version: "3.1"
+
+intents:
+  - greet
+  - goodbye
+  - affirm
+  - deny
+  - bot_challenge
+  - out_of_scope
+  # Queue
+  - join_queue
+  - cancel_queue
+  - check_queue_status
+  - get_queue_number
+  - estimated_wait_time
+  # Clinic info
+  - clinic_hours
+  - nearest_clinic
+  - get_clinic_location
+  - get_clinic_services
+  # Appointments
+  - appointment_inquiry
+  - book_appointment
+  - cancel_appointment
+  - reschedule_appointment
+  - recommendation_request
+  # Support
+  - human_assistance
+  - complaint
+  # FAQ
+  - ask_requirements
+  - ask_payment
+  - ask_results
+  - ask_philhealth
+  - ask_hmo
+  - general_health_faq
+
+entities:
+  - clinic_name
+  - service_name
+  - location
+  - date
+  - time
+  - payment_method
+
+slots:
+  clinic_name:
+    type: text
+    influence_conversation: true
+    mappings:
+      - type: from_entity
+        entity: clinic_name
+
+  service_name:
+    type: text
+    influence_conversation: true
+    mappings:
+      - type: from_entity
+        entity: service_name
+
+  location:
+    type: text
+    influence_conversation: false
+    mappings:
+      - type: from_entity
+        entity: location
+
+  date:
+    type: text
+    influence_conversation: false
+    mappings:
+      - type: from_entity
+        entity: date
+
+  time:
+    type: text
+    influence_conversation: false
+    mappings:
+      - type: from_entity
+        entity: time
+
+  # Contextual memory slots
+  last_queue_number:
+    type: text
+    influence_conversation: false
+    mappings:
+      - type: custom
+
+  last_clinic_id:
+    type: text
+    influence_conversation: false
+    mappings:
+      - type: custom
+
+  last_wait_time:
+    type: float
+    influence_conversation: false
+    mappings:
+      - type: custom
+
+  escalated:
+    type: bool
+    influence_conversation: true
+    mappings:
+      - type: custom
+
+responses:
+  utter_greet:
+    - text: "Hi! I'm HQ Assistant. I can help you join a queue, check wait times, find the nearest clinic, book appointments, and more. What do you need today?"
+    - text: "Hello! Welcome to HealthQueue+. How can I assist you? You can ask me about queue status, clinic hours, appointments, or get a clinic recommendation."
+
+  utter_goodbye:
+    - text: "Take care! Feel free to come back anytime. Stay healthy!"
+    - text: "Goodbye! Hope I was able to help. See you next time."
+
+  utter_bot_challenge:
+    - text: "I'm HQ Assistant — an AI chatbot for HealthQueue+. I'm here to help with your clinic needs. For urgent concerns, just say 'talk to staff' and I'll escalate to a human."
+
+  utter_default:
+    - text: "I'm not sure I understood that. I can help with: queue status, wait times, clinic recommendations, appointments, hours, or services. What do you need?"
+    - text: "Sorry, I didn't catch that! Try asking about your queue, appointment, clinic hours, or say 'recommend a clinic' to find the best option near you."
+
+  utter_out_of_scope:
+    - text: "That's outside my area — I'm specialized in HealthQueue+ clinic services. For medical advice, please consult a doctor. Can I help with anything clinic-related?"
+
+  # ── Queue ──────────────────────────────────────────────────────────────────
+  utter_get_queue_number:
+    - text: "To get a queue number, tap **Get Queue Number** on your dashboard, select the clinic and service, and you'll be assigned a number instantly. Would you like me to check which clinic has the shortest wait?"
+
+  utter_queue_cancelled_confirmed:
+    - text: "Your queue entry has been cancelled. You can rejoin anytime by tapping 'Get Queue Number'."
+
+  utter_queue_cancel_aborted:
+    - text: "No problem — your queue spot is still active. Let me know if there's anything else I can help with."
+
+  # ── Appointments ───────────────────────────────────────────────────────────
+  utter_appointment_inquiry:
+    - text: "HealthQueue+ supports both walk-in queue and pre-booked appointments. Walk-ins get a queue number on arrival; appointments reserve a specific time slot. Appointments are recommended for busy hours or specific services. Want to book one?"
+
+  utter_book_appointment:
+    - text: "To book an appointment, tap **Book Appointment** on your dashboard → select clinic, service, date, and time slot → confirm. You'll get a notification once booked. Shall I check available slots for you?"
+    - text: "You can book directly in the app! Dashboard → Book Appointment → pick your preferred clinic and schedule. Need help choosing a clinic?"
+
+  utter_cancel_appointment:
+   - text: "To cancel, go to **My Appointments**, select the appointment, and tap **Cancel**. Note: cancellations must be made at least 1 hour before the scheduled time. Need help with anything else?"
+
+  utter_reschedule_appointment:
+    - text: "To reschedule, go to **My Appointments**, select your appointment, and choose a new date and time — subject to availability. Would you like me to check available slots?"
+
+  # ── Clinic Info ────────────────────────────────────────────────────────────
+  utter_get_clinic_location:
+    - text: "You can find all nearby clinic locations on the **Map** in your app. Tap any clinic pin for its address and directions. Want me to recommend the closest one with the shortest queue?"
+
+  utter_ask_requirements:
+    - text: "Most tests require a valid ID. Fasting (8–12 hours) is needed for blood sugar and lipid tests. Some procedures need a doctor's request. Which test are you preparing for? I can give specific requirements."
+
+  utter_ask_payment:
+    - text: "Accepted payments: **Cash, GCash, Maya, and major credit/debit cards**. PhilHealth and most major HMOs are also accepted. Payment is made at the clinic. Need more details on coverage?"
+
+  utter_ask_results:
+    - text: "Most results are available **same day**. Specialized tests may take 1–3 business days. The release time is printed on your receipt. Some branches offer email/digital delivery. Want to check with a specific branch?"
+
+  utter_ask_philhealth:
+    - text: "Yes, PhilHealth is accepted! Bring your **PhilHealth ID and MDR** (Member Data Record). Coverage depends on your benefit package and test type. Call your branch to confirm specific coverage."
+
+  utter_ask_hmo:
+    - text: "Accepted HMOs include **Maxicare, Medicard, InLife Health, Intellicare, and Philcare**. Bring your HMO card and Letter of Authorization (LOA). Check with your HMO for covered tests."
+
+  utter_general_health_faq:
+    - text: "For specific health questions, I recommend consulting a licensed physician. I can help with clinic-related questions: services, schedules, queues, and appointments. What else can I help with?"
+
+  utter_clarification_prompt:
+    - text: "Sure! Here's what I can help with: checking your queue, joining a queue, finding clinics, booking appointments, or checking clinic hours. Which one do you need?"
+
+  utter_escalation_sent:
+    - text: "I've flagged your concern to our staff. A healthcare team member will review it shortly. You can also call your branch directly for urgent matters. Is there anything else I can note for them?"
+
+  utter_iamabot:
+    - text: "I'm HQ Assistant, the AI chatbot for HealthQueue+. I can escalate to a human staff member if needed — just say 'talk to staff'!"
+
+actions:
+  - action_get_estimated_wait_time
+  - action_check_queue_status
+  - action_join_queue
+  - action_cancel_queue
+  - action_get_clinic_recommendations
+  - action_get_clinic_hours
+  - action_get_clinic_services
+  - action_get_available_slots
+  - action_escalate_to_staff
+  - action_default_fallback
+
+session_config:
+  session_expiration_time: 60
+  carry_over_slots_to_new_session: true
