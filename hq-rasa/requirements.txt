@@ -1,12 +1,6 @@
-# ── Build tools — MUST be pinned before Rasa installs ──────────────
-# setuptools 70+ breaks docopt's legacy setup.py
-setuptools==67.8.0
-wheel==0.41.3
-pip==23.3.2
-
-# ── Rasa core ────────────────────────────────────────────────────
+# ── Rasa & SDK ───────────────────────────────────────────────────
 rasa==3.6.20
 rasa-sdk==3.6.2
 
-# ── Runtime deps ─────────────────────────────────────────────────
-requests==2.31.0
+# ── Runtime ──────────────────────────────────────────────────────
+requests>=2.31.0
