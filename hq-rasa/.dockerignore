@@ -1,0 +1,8 @@
+.git
+.gitignore
+.vercel
+**/__pycache__
+*.pyc
+README.md
+data/
+*.zip

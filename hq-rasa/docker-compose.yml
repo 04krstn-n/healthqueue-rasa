@@ -1,0 +1,29 @@
+services:
+  rasa:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "5005:5005"
+    environment:
+      - HQ_SERVER_URL=${HQ_SERVER_URL:-http://host.docker.internal:4000/api}
+    depends_on:
+      - action-server
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    mem_limit: 900m
+
+  action-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.actions
+    ports:
+      - "5055:5055"
+    environment:
+      - HQ_SERVER_URL=${HQ_SERVER_URL:-http://host.docker.internal:4000/api}
+      - HQ_BOT_TOKEN=${HQ_BOT_TOKEN:-}
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    mem_limit: 200m
