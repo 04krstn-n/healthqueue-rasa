@@ -1,2 +1,6 @@
+# "action-server" is the docker-compose service name below, not localhost.
+# Containers on the same compose network resolve each other by service name.
+# If you're running rasa/actions outside Docker (e.g. local dev with
+# venv), change this back to http://localhost:5055/webhook.
 action_endpoint:
-  url: "http://localhost:5055/webhook"
+  url: "http://action-server:5055/webhook"
