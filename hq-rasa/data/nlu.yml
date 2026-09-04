@@ -815,3 +815,20 @@ nlu:
     - how do I invest
     - help me with my math
     - solve this equation
+# ── New: patient's own appointments ──────────────────────────────────────────
+- intent: ask_my_appointments
+  examples: |
+    - what are my appointments
+    - do I have any upcoming appointments
+    - show my appointments
+    - when is my next appointment
+    - check my booking
+    - what's my schedule
+    - anong schedule ko
+    - meron ba akong appointment
+    - kelan ang appointment ko
+    - check ko yung booking ko
+    - my upcoming appointment ba ako
+    - anong susunod na appointment ko
+    - my appt b aq
+    - kln appt q

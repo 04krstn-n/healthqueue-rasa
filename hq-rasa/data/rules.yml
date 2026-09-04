@@ -38,6 +38,24 @@ rules:
     - intent: cancel_queue
     - action: action_cancel_queue
 
+- rule: Confirm cancel queue
+  condition:
+    - active_loop: null
+    - slot_was_set:
+        - pending_confirmation: cancel_queue
+  steps:
+    - intent: affirm
+    - action: action_confirm_cancel_queue
+
+- rule: Cancel queue - denied
+  condition:
+    - active_loop: null
+    - slot_was_set:
+        - pending_confirmation: cancel_queue
+  steps:
+    - intent: deny
+    - action: action_clear_pending_confirmation
+
 - rule: Check queue status
   steps:
     - intent: check_queue_status
@@ -79,28 +97,71 @@ rules:
     - intent: recommendation_request
     - action: action_get_clinic_recommendations
 
-# ── Appointments ──────────────────────────────────────────────────────────
+# ── Appointments (real actions, not static utter_*) ─────────────────────────
 - rule: Appointment inquiry
   steps:
     - intent: appointment_inquiry
     - action: utter_appointment_inquiry
 
-- rule: Book appointment
+- rule: Book appointment - start form
   steps:
     - intent: book_appointment
-    - action: utter_book_appointment
+    - action: appointment_form
+    - active_loop: appointment_form
+
+- rule: Submit appointment form
+  condition:
+    - active_loop: appointment_form
+  steps:
+    - action: appointment_form
+    - active_loop: null
+    - action: action_submit_appointment_form
+
+- rule: My upcoming appointments
+  steps:
+    - intent: ask_my_appointments
+    - action: action_get_my_appointments
 
 - rule: Cancel appointment
   steps:
     - intent: cancel_appointment
-    - action: utter_cancel_appointment
+    - action: action_cancel_appointment
 
-- rule: Reschedule appointment
+- rule: Confirm cancel appointment
+  condition:
+    - active_loop: null
+    - slot_was_set:
+        - pending_confirmation: cancel_appointment
+  steps:
+    - intent: affirm
+    - action: action_confirm_cancel_appointment
+
+- rule: Cancel appointment - denied
+  condition:
+    - active_loop: null
+    - slot_was_set:
+        - pending_confirmation: cancel_appointment
+  steps:
+    - intent: deny
+    - action: action_clear_pending_confirmation
+
+- rule: Reschedule appointment - start
   steps:
     - intent: reschedule_appointment
-    - action: utter_reschedule_appointment
+    - action: action_reschedule_appointment
+    - action: reschedule_form
+    - active_loop: reschedule_form
 
-# ── Support ───────────────────────────────────────────────────────────────
+- rule: Submit reschedule form
+  condition:
+    - active_loop: reschedule_form
+  steps:
+    - action: reschedule_form
+    - active_loop: null
+    - action: action_confirm_reschedule
+
+# ── Support / Escalation (POST /chatbot/escalate — already wired to your
+#    tabapp's Patient Inquiry "Needs Attention" screen; nothing new there) ──
 - rule: Human assistance
   steps:
     - intent: human_assistance

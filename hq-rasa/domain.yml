@@ -24,6 +24,7 @@ intents:
   - cancel_appointment
   - reschedule_appointment
   - recommendation_request
+  - ask_my_appointments      # NEW — "what are my appointments" / "when is my next appointment"
   # Support
   - human_assistance
   - complaint
@@ -65,12 +66,24 @@ slots:
       - type: from_entity
         entity: location
 
+  # date/time now do double duty: still fill from an NLU-tagged entity
+  # anywhere in the conversation (unchanged), AND fill from plain free text
+  # while the appointment_form/reschedule_form is actively asking for them
+  # — that second mapping is what lets the booking/reschedule flow collect
+  # a real date and time slot from the patient instead of just linking to
+  # the app.
   date:
     type: text
     influence_conversation: false
     mappings:
       - type: from_entity
         entity: date
+      - type: from_text
+        conditions:
+          - active_loop: appointment_form
+            requested_slot: date
+          - active_loop: reschedule_form
+            requested_slot: date
 
   time:
     type: text
@@ -78,6 +91,12 @@ slots:
     mappings:
       - type: from_entity
         entity: time
+      - type: from_text
+        conditions:
+          - active_loop: appointment_form
+            requested_slot: time
+          - active_loop: reschedule_form
+            requested_slot: time
 
   # Contextual memory slots
   last_queue_number:
@@ -103,6 +122,82 @@ slots:
     influence_conversation: true
     mappings:
       - type: custom
+
+  # ── NEW: patient identity ──────────────────────────────────────────────
+  # Set by action_session_start from the metadata hq-server's
+  # chatbotController.handleMessage forwards on every webhook call — the
+  # patient's own bearer token, id, and name. Every action that needs to
+  # call hq-server as this specific patient (join queue, book, cancel,
+  # reschedule, escalate) reads patient_token from here.
+  patient_token:
+    type: text
+    influence_conversation: false
+    mappings:
+      - type: custom
+
+  patient_id:
+    type: text
+    influence_conversation: false
+    mappings:
+      - type: custom
+
+  patient_name:
+    type: text
+    influence_conversation: false
+    mappings:
+      - type: custom
+
+  # ── NEW: appointment booking / reschedule support ──────────────────────
+  # Holds the real available time-slot strings for the chosen clinic+date
+  # (from GET /appointments/available-slots), so the time the patient types
+  # can be matched against what's actually bookable instead of accepted
+  # blindly.
+  available_slots:
+    type: list
+    influence_conversation: false
+    mappings:
+      - type: custom
+
+  pending_appointment_id:
+    type: text
+    influence_conversation: false
+    mappings:
+      - type: custom
+
+  pending_queue_entry_id:
+    type: text
+    influence_conversation: false
+    mappings:
+      - type: custom
+
+  # Disambiguates a bare "yes"/"no" between confirming a queue cancellation
+  # vs an appointment cancellation. Must be `categorical` (not `text`) —
+  # a text slot only featurizes as a binary "is this set" flag, so
+  # RulePolicy can't actually tell "cancel_queue" apart from
+  # "cancel_appointment" even with different values in a rule condition;
+  # only categorical/bool slots are one-hot encoded by value, which is
+  # what actually lets RulePolicy prove these two states are exclusive.
+  pending_confirmation:
+    type: categorical
+    values:
+      - cancel_queue
+      - cancel_appointment
+    influence_conversation: true
+    mappings:
+      - type: custom
+
+# ── NEW: appointment booking / reschedule forms ────────────────────────────
+forms:
+  appointment_form:
+    required_slots:
+      - clinic_name
+      - service_name
+      - date
+      - time
+  reschedule_form:
+    required_slots:
+      - date
+      - time
 
 responses:
   utter_greet:
@@ -137,6 +232,11 @@ responses:
   utter_appointment_inquiry:
     - text: "HealthQueue+ supports both walk-in queue and pre-booked appointments. Walk-ins get a queue number on arrival; appointments reserve a specific time slot. Appointments are recommended for busy hours or specific services. Want to book one?"
 
+  # utter_book_appointment / utter_cancel_appointment / utter_reschedule_appointment
+  # kept below — still used if you want a plain informational reply, but
+  # book_appointment/cancel_appointment/reschedule_appointment intents are
+  # now wired (see rules.yml) to the real actions instead of these statics,
+  # since the bot can now actually do these rather than just explain how.
   utter_book_appointment:
     - text: "To book an appointment, tap **Book Appointment** on your dashboard → select clinic, service, date, and time slot → confirm. You'll get a notification once booked. Shall I check available slots for you?"
     - text: "You can book directly in the app! Dashboard → Book Appointment → pick your preferred clinic and schedule. Need help choosing a clinic?"
@@ -178,6 +278,17 @@ responses:
   utter_iamabot:
     - text: "I'm HQ Assistant, the AI chatbot for HealthQueue+. I can escalate to a human staff member if needed — just say 'talk to staff'!"
 
+  # ── NEW: appointment_form prompts ───────────────────────────────────────
+  # date/time are asked dynamically instead (action_ask_date shows nothing
+  # special, but action_ask_time shows the REAL available slots for the
+  # date just given — see actions.py). clinic_name/service_name stay static.
+  utter_ask_clinic_name:
+    - text: "Which branch would you like to book at?"
+  utter_ask_service_name:
+    - text: "What service or test is this for?"
+  utter_ask_date:
+    - text: "What date works for you? (e.g. \"tomorrow\", \"next Monday\", \"Sept 10\")"
+
 actions:
   - action_get_estimated_wait_time
   - action_check_queue_status
@@ -186,9 +297,25 @@ actions:
   - action_get_clinic_recommendations
   - action_get_clinic_hours
   - action_get_clinic_services
-  - action_get_available_slots
   - action_escalate_to_staff
+  # action_get_available_slots intentionally NOT listed — no Python class
+  # implements it anymore. Its logic now lives inside
+  # validate_appointment_form (checks real availability the moment a date
+  # is given), so keeping it here would be a dangling action reference.
   - action_default_fallback
+  # ── NEW ──────────────────────────────────────────────────────────────────
+  - action_session_start
+  - action_confirm_cancel_queue
+  - action_get_my_appointments
+  - action_cancel_appointment
+  - action_confirm_cancel_appointment
+  - action_clear_pending_confirmation
+  - action_reschedule_appointment
+  - action_confirm_reschedule
+  - action_submit_appointment_form
+  - action_ask_time
+  - validate_appointment_form
+  - validate_reschedule_form
 
 session_config:
   session_expiration_time: 60
