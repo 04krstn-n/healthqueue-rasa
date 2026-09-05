@@ -57,9 +57,48 @@ WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", 
 
 # ── HTTP helpers ────────────────────────────────────────────────────────────
 
+def _get_metadata(tracker: Tracker) -> Dict:
+    """Raw metadata sent with the CURRENT incoming message. hq-server
+    attaches this on every single /chatbot/message call (not just the
+    first one in a session) — see chatbotController.handleMessage."""
+    return tracker.latest_message.get("metadata") or {}
+
+
+def _patient_token(tracker: Tracker) -> Optional[str]:
+    """Prefers the current message's own metadata over the slot.
+    action_session_start only runs once, at the very start of a session —
+    if it ever misses (a Rasa-version metadata-timing quirk, a session
+    that got carried over from before this was wired up, anything),
+    _is_authenticated()/_auth_headers() would silently and permanently
+    treat every action for the rest of that session as logged-out, with
+    no way to recover short of the session expiring. Reading straight
+    from this message's own metadata first means every single turn gets
+    its own chance to establish identity, not just the first one.
+    """
+    meta = _get_metadata(tracker)
+    return meta.get("patient_token") or tracker.get_slot("patient_token")
+
+
+def _patient_id(tracker: Tracker) -> Optional[str]:
+    meta = _get_metadata(tracker)
+    pid = meta.get("patient_id") or tracker.get_slot("patient_id")
+    return str(pid) if pid else None
+
+
+def _patient_name(tracker: Tracker) -> Optional[str]:
+    meta = _get_metadata(tracker)
+    return meta.get("patient_name") or tracker.get_slot("patient_name")
+
+
+def _metadata_clinic_id(tracker: Tracker) -> Optional[str]:
+    meta = _get_metadata(tracker)
+    cid = meta.get("clinic_id") or tracker.get_slot("last_clinic_id")
+    return str(cid) if cid else None
+
+
 def _auth_headers(tracker: Tracker) -> Dict[str, str]:
     h = {"Content-Type": "application/json"}
-    token = tracker.get_slot("patient_token")
+    token = _patient_token(tracker)
     if token:
         h["Authorization"] = f"Bearer {token}"
     return h
@@ -108,7 +147,7 @@ def _put(path: str, data: Dict, tracker: Tracker) -> Optional[Dict]:
 
 
 def _is_authenticated(tracker: Tracker) -> bool:
-    return bool(tracker.get_slot("patient_token"))
+    return bool(_patient_token(tracker))
 
 
 def _need_login_message() -> str:
@@ -217,6 +256,13 @@ class ActionSessionStart(Action):
     async def run(self, dispatcher: CollectingDispatcher, tracker: Tracker, domain: Dict[Text, Any]):
         events: List[EventType] = [SessionStarted()]
 
+        # Still set from metadata into slots here (for carry-over across
+        # this session, and so slots like patient_name are available to
+        # any code that only reads slots) — but this is no longer the
+        # ONLY place identity is established. _patient_token/_patient_id/
+        # _patient_name (used by every action below) read the CURRENT
+        # message's metadata first and only fall back to these slots, so
+        # a miss here isn't fatal for the rest of the session anymore.
         metadata = tracker.latest_message.get("metadata") or {}
         token        = metadata.get("patient_token")
         patient_id   = metadata.get("patient_id")
