@@ -51,6 +51,17 @@ slots:
     mappings:
       - type: from_entity
         entity: clinic_name
+      # Captures the reply RAW, regardless of NLU intent/entity confidence,
+      # while join_queue_form is actively asking for it — this is the real
+      # fix for a bare reply like "Vertis" or "Hi-Precision - Vertis"
+      # falling to nlu_fallback (there were previously zero clinic_name
+      # entity training examples at all, so extraction alone could never
+      # be relied on). Same pattern appointment_form already uses for
+      # date/time below.
+      - type: from_text
+        conditions:
+          - active_loop: join_queue_form
+            requested_slot: clinic_name
 
   service_name:
     type: text
@@ -186,7 +197,7 @@ slots:
     mappings:
       - type: custom
 
-# ── NEW: appointment booking / reschedule forms ────────────────────────────
+# ── NEW: appointment booking / reschedule / join-queue forms ───────────────
 forms:
   appointment_form:
     required_slots:
@@ -198,6 +209,14 @@ forms:
     required_slots:
       - date
       - time
+  # NEW — see clinic_name slot's from_text mapping above. Rasa's form
+  # mechanics automatically skip asking for a slot that's already filled
+  # (e.g. carried over from a prior clinic recommendation), so activating
+  # this unconditionally on join_queue is safe — it won't re-ask if
+  # last_clinic_id/clinic_name are already known.
+  join_queue_form:
+    required_slots:
+      - clinic_name
 
 responses:
   utter_greet:
@@ -233,10 +252,11 @@ responses:
     - text: "HealthQueue+ supports both walk-in queue and pre-booked appointments. Walk-ins get a queue number on arrival; appointments reserve a specific time slot. Appointments are recommended for busy hours or specific services. Want to book one?"
 
   # utter_book_appointment / utter_cancel_appointment / utter_reschedule_appointment
-  # kept below — still used if you want a plain informational reply, but
-  # book_appointment/cancel_appointment/reschedule_appointment intents are
-  # now wired (see rules.yml) to the real actions instead of these statics,
-  # since the bot can now actually do these rather than just explain how.
+  # kept below purely as fallback informational text — book_appointment/
+  # cancel_appointment/reschedule_appointment intents are now ACTUALLY
+  # wired (see rules.yml) to appointment_form / action_cancel_appointment /
+  # action_reschedule_appointment, which was previously only claimed here,
+  # not actually done in rules.yml.
   utter_book_appointment:
     - text: "To book an appointment, tap **Book Appointment** on your dashboard → select clinic, service, date, and time slot → confirm. You'll get a notification once booked. Shall I check available slots for you?"
     - text: "You can book directly in the app! Dashboard → Book Appointment → pick your preferred clinic and schedule. Need help choosing a clinic?"
@@ -278,10 +298,12 @@ responses:
   utter_iamabot:
     - text: "I'm HQ Assistant, the AI chatbot for HealthQueue+. I can escalate to a human staff member if needed — just say 'talk to staff'!"
 
-  # ── NEW: appointment_form prompts ───────────────────────────────────────
+  # ── NEW: appointment_form / join_queue_form prompts ─────────────────────
   # date/time are asked dynamically instead (action_ask_date shows nothing
   # special, but action_ask_time shows the REAL available slots for the
   # date just given — see actions.py). clinic_name/service_name stay static.
+  # utter_ask_clinic_name is reused as-is by join_queue_form too — Rasa
+  # doesn't require a separate per-form utterance when the slot name matches.
   utter_ask_clinic_name:
     - text: "Which branch would you like to book at?"
   utter_ask_service_name:
@@ -316,6 +338,7 @@ actions:
   - action_ask_time
   - validate_appointment_form
   - validate_reschedule_form
+  - validate_join_queue_form
 
 session_config:
   session_expiration_time: 60

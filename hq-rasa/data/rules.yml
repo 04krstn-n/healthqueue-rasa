@@ -28,9 +28,27 @@ rules:
     - action: utter_default
 
 # ── Queue ──────────────────────────────────────────────────────────────────
-- rule: Join queue
+# Was a direct `action: action_join_queue` — that action used to have to
+# ask "which branch?" itself with no way to reliably capture the reply
+# (zero clinic_name NLU training data existed, and there was no active
+# form to capture free text regardless of NLU confidence). Routing through
+# join_queue_form first means a bare reply like "Vertis" is captured as
+# raw text while the form is active — see the clinic_name slot's
+# from_text mapping in domain.yml. The form auto-skips asking if
+# clinic_name/last_clinic_id is already known (e.g. from a prior
+# recommendation), so this doesn't add an extra step in that case.
+- rule: Activate join queue form
   steps:
     - intent: join_queue
+    - action: join_queue_form
+    - active_loop: join_queue_form
+
+- rule: Submit join queue form
+  condition:
+    - active_loop: join_queue_form
+  steps:
+    - action: join_queue_form
+    - active_loop: null
     - action: action_join_queue
 
 - rule: Cancel queue
@@ -38,18 +56,23 @@ rules:
     - intent: cancel_queue
     - action: action_cancel_queue
 
+# ActionCancelQueue asks "Cancel and lose your spot? (yes/no)" and sets
+# pending_confirmation: cancel_queue — these two rules were completely
+# missing before, so a "yes" here had no rule to fire
+# action_confirm_cancel_queue at all. The condition on pending_confirmation
+# is what lets RulePolicy tell this apart from confirming an appointment
+# cancellation below without the two rules contradicting each other (see
+# the comment on that slot in domain.yml for why it has to be categorical).
 - rule: Confirm cancel queue
   condition:
-    - active_loop: null
     - slot_was_set:
         - pending_confirmation: cancel_queue
   steps:
     - intent: affirm
     - action: action_confirm_cancel_queue
 
-- rule: Cancel queue - denied
+- rule: Deny cancel queue
   condition:
-    - active_loop: null
     - slot_was_set:
         - pending_confirmation: cancel_queue
   steps:
@@ -97,13 +120,18 @@ rules:
     - intent: recommendation_request
     - action: action_get_clinic_recommendations
 
-# ── Appointments (real actions, not static utter_*) ─────────────────────────
+# ── Appointments ──────────────────────────────────────────────────────────
 - rule: Appointment inquiry
   steps:
     - intent: appointment_inquiry
     - action: utter_appointment_inquiry
 
-- rule: Book appointment - start form
+# Was wired to the static utter_book_appointment ("tap Book Appointment in
+# the dashboard") — appointment_form and all its validation/submit logic
+# (ValidateAppointmentForm, action_submit_appointment_form, action_ask_time)
+# already existed in actions.py but nothing here ever activated the form,
+# so none of that code could ever run.
+- rule: Activate appointment form
   steps:
     - intent: book_appointment
     - action: appointment_form
@@ -117,11 +145,9 @@ rules:
     - active_loop: null
     - action: action_submit_appointment_form
 
-- rule: My upcoming appointments
-  steps:
-    - intent: ask_my_appointments
-    - action: action_get_my_appointments
-
+# Was wired to the static utter_cancel_appointment ("go to My Appointments
+# and tap Cancel") — action_cancel_appointment (which actually looks up
+# and cancels it) already existed, just never referenced here.
 - rule: Cancel appointment
   steps:
     - intent: cancel_appointment
@@ -129,23 +155,27 @@ rules:
 
 - rule: Confirm cancel appointment
   condition:
-    - active_loop: null
     - slot_was_set:
         - pending_confirmation: cancel_appointment
   steps:
     - intent: affirm
     - action: action_confirm_cancel_appointment
 
-- rule: Cancel appointment - denied
+- rule: Deny cancel appointment
   condition:
-    - active_loop: null
     - slot_was_set:
         - pending_confirmation: cancel_appointment
   steps:
     - intent: deny
     - action: action_clear_pending_confirmation
 
-- rule: Reschedule appointment - start
+# Was wired to the static utter_reschedule_appointment — same issue as
+# cancel/book above. action_reschedule_appointment picks the appointment
+# and resets date/time to null, THEN reschedule_form asks for the new
+# date/time (its own from_text mapping handles that free-text capture,
+# same pattern as appointment_form), and action_confirm_reschedule
+# actually submits the change.
+- rule: Start reschedule appointment
   steps:
     - intent: reschedule_appointment
     - action: action_reschedule_appointment
@@ -160,8 +190,14 @@ rules:
     - active_loop: null
     - action: action_confirm_reschedule
 
-# ── Support / Escalation (POST /chatbot/escalate — already wired to your
-#    tabapp's Patient Inquiry "Needs Attention" screen; nothing new there) ──
+# Was entirely missing — action_get_my_appointments already existed with
+# no rule ever calling it.
+- rule: My appointments
+  steps:
+    - intent: ask_my_appointments
+    - action: action_get_my_appointments
+
+# ── Support ───────────────────────────────────────────────────────────────
 - rule: Human assistance
   steps:
     - intent: human_assistance

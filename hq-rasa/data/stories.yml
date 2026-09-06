@@ -3,16 +3,27 @@ version: "3.1"
 stories:
 
 # ── Queue Enrollment Flow ────────────────────────────────────────────────────
+# join_queue now goes through join_queue_form (see rules.yml) instead of
+# calling action_join_queue directly — these stories are updated to match,
+# since training TED policy on the old direct-call pattern while rules.yml
+# enforces the form pattern would teach two contradictory shapes for the
+# same intent.
 - story: queue enrollment - greet then join
   steps:
     - intent: greet
     - action: utter_greet
     - intent: join_queue
+    - action: join_queue_form
+    - active_loop: join_queue_form
+    - active_loop: null
     - action: action_join_queue
 
 - story: queue enrollment - confirm join
   steps:
     - intent: join_queue
+    - action: join_queue_form
+    - active_loop: join_queue_form
+    - active_loop: null
     - action: action_join_queue
     - intent: check_queue_status
     - action: action_check_queue_status
@@ -20,14 +31,24 @@ stories:
 - story: queue enrollment with wait time
   steps:
     - intent: join_queue
+    - action: join_queue_form
+    - active_loop: join_queue_form
+    - active_loop: null
     - action: action_join_queue
     - intent: estimated_wait_time
     - action: action_get_estimated_wait_time
 
+# Was `affirm -> utter_queue_cancelled_confirmed` directly — action_cancel_queue
+# sets pending_confirmation: cancel_queue and rules.yml's "Confirm cancel
+# queue" rule (condition on that slot) is what actually fires
+# action_confirm_cancel_queue now; going straight to the utterance skipped
+# the real cancellation call to hq-server entirely.
 - story: cancel queue with confirmation
   steps:
     - intent: cancel_queue
     - action: action_cancel_queue
+    - slot_was_set:
+        - pending_confirmation: cancel_queue
     - intent: affirm
     - action: action_confirm_cancel_queue
 
@@ -35,6 +56,8 @@ stories:
   steps:
     - intent: cancel_queue
     - action: action_cancel_queue
+    - slot_was_set:
+        - pending_confirmation: cancel_queue
     - intent: deny
     - action: action_clear_pending_confirmation
 
@@ -67,6 +90,9 @@ stories:
     - intent: recommendation_request
     - action: action_get_clinic_recommendations
     - intent: join_queue
+    - action: join_queue_form
+    - active_loop: join_queue_form
+    - active_loop: null
     - action: action_join_queue
 
 - story: recommendation then appointment
@@ -87,6 +113,19 @@ stories:
     - action: action_get_estimated_wait_time
 
 # ── Appointment Flow ──────────────────────────────────────────────────────────
+# book_appointment now goes through appointment_form (see rules.yml) instead
+# of utter_book_appointment — same reasoning as join_queue above.
+# action_get_available_slots (used in the old version of this story) no
+# longer exists as a Python action at all; that logic now lives inside
+# validate_appointment_form, which runs automatically as part of the form.
+- story: book appointment with slot check
+  steps:
+    - intent: book_appointment
+    - action: appointment_form
+    - active_loop: appointment_form
+    - active_loop: null
+    - action: action_submit_appointment_form
+
 - story: appointment then wait time
   steps:
     - intent: book_appointment
@@ -126,6 +165,26 @@ stories:
     - active_loop: appointment_form
     - active_loop: null
     - action: action_submit_appointment_form
+
+- story: my appointments then cancel
+  steps:
+    - intent: ask_my_appointments
+    - action: action_get_my_appointments
+    - intent: cancel_appointment
+    - action: action_cancel_appointment
+    - slot_was_set:
+        - pending_confirmation: cancel_appointment
+    - intent: affirm
+    - action: action_confirm_cancel_appointment
+
+- story: reschedule appointment flow
+  steps:
+    - intent: reschedule_appointment
+    - action: action_reschedule_appointment
+    - action: reschedule_form
+    - active_loop: reschedule_form
+    - active_loop: null
+    - action: action_confirm_reschedule
 
 # ── Clarification Flows ───────────────────────────────────────────────────────
 - story: clarification after fallback
@@ -189,6 +248,9 @@ stories:
     - intent: get_clinic_location
     - action: utter_get_clinic_location
     - intent: join_queue
+    - action: join_queue_form
+    - active_loop: join_queue_form
+    - active_loop: null
     - action: action_join_queue
 
 # ── Failed Input Recovery ─────────────────────────────────────────────────────
@@ -216,27 +278,3 @@ stories:
     - action: utter_default
     - intent: recommendation_request
     - action: action_get_clinic_recommendations
-# ── New: real appointment booking / cancel / reschedule ─────────────────────
-- story: book appointment end to end
-  steps:
-    - intent: book_appointment
-    - action: appointment_form
-    - active_loop: appointment_form
-    - active_loop: null
-    - action: action_submit_appointment_form
-
-- story: cancel appointment with confirmation
-  steps:
-    - intent: cancel_appointment
-    - action: action_cancel_appointment
-    - intent: affirm
-    - action: action_confirm_cancel_appointment
-
-- story: reschedule appointment end to end
-  steps:
-    - intent: reschedule_appointment
-    - action: action_reschedule_appointment
-    - action: reschedule_form
-    - active_loop: reschedule_form
-    - active_loop: null
-    - action: action_confirm_reschedule

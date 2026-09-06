@@ -455,6 +455,26 @@ class ActionGetClinicServices(Action):
 # ─────────────────────────────────────────────────────────────────────────────
 # ACTION: Join / check / cancel queue — patient-authenticated
 # ─────────────────────────────────────────────────────────────────────────────
+class ValidateJoinQueueForm(FormValidationAction):
+    """Backs join_queue_form (see domain.yml) — reuses the exact same
+    clinic-lookup logic as ValidateAppointmentForm.validate_clinic_name so
+    a bare reply like "Vertis" or "Hi-Precision - Vertis" resolves to a
+    real clinic regardless of NLU intent/entity confidence, since the
+    form's from_text mapping captures the raw reply directly."""
+
+    def name(self) -> Text:
+        return "validate_join_queue_form"
+
+    def validate_clinic_name(self, slot_value, dispatcher, tracker, domain):
+        clinic = _find_clinic(slot_value, tracker)
+        if not clinic:
+            dispatcher.utter_message(
+                text=f"I couldn't find a branch called \"{slot_value}\" — could you check the name, or ask me to recommend one?"
+            )
+            return {"clinic_name": None}
+        return {"clinic_name": clinic["name"], "last_clinic_id": str(clinic["_id"])}
+
+
 class ActionJoinQueue(Action):
     def name(self) -> Text:
         return "action_join_queue"
@@ -464,16 +484,19 @@ class ActionJoinQueue(Action):
             dispatcher.utter_message(text=_need_login_message())
             return []
 
-        clinic_name = tracker.get_slot("clinic_name")
-        service     = tracker.get_slot("service_name")
-        clinic_id   = tracker.get_slot("last_clinic_id")
-
-        if not clinic_id and clinic_name:
-            clinic = _find_clinic(clinic_name, tracker)
-            clinic_id = str(clinic["_id"]) if clinic else None
+        # By the time this runs, join_queue_form (see rules.yml) has
+        # already resolved clinic_name -> last_clinic_id via
+        # ValidateJoinQueueForm — or the form skipped itself entirely
+        # because last_clinic_id was already known (e.g. from a prior
+        # recommendation). Either way, this no longer needs to ask "which
+        # branch" itself — that was the actual bug: a bare clinic-name
+        # reply to that question had nothing trained to capture it before
+        # the form's from_text mapping existed.
+        service   = tracker.get_slot("service_name")
+        clinic_id = tracker.get_slot("last_clinic_id")
 
         if not clinic_id:
-            dispatcher.utter_message(text="Which branch would you like to queue at? Or I can recommend the one with the shortest wait.")
+            dispatcher.utter_message(text="I still need a branch to queue you at — which one, or should I recommend one?")
             return []
 
         payload = {"clinicId": clinic_id}
@@ -488,7 +511,7 @@ class ActionJoinQueue(Action):
             dispatcher.utter_message(
                 text=(
                     f"You've joined the queue! 🎉 Queue **#{entry['queueNumber']}** at "
-                    f"{entry.get('clinicName', clinic_name)} for {entry.get('serviceName', service or 'your visit')}. "
+                    f"{entry.get('clinicName', '')} for {entry.get('serviceName', service or 'your visit')}. "
                     f"Position: {result.get('position', '?')}. Estimated wait: **{wait}**."
                 )
             )

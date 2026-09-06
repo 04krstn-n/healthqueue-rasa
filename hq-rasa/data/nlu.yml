@@ -152,6 +152,17 @@ nlu:
     - legit na bot ka ba
 
 # ── Queue ────────────────────────────────────────────────────────────────────
+# Uses generic, made-up clinic names purely to teach the entity
+# recognizer the SHAPE of a clinic name (a proper noun, often with a
+# location/branch suffix) — not tied to any specific real clinic, since
+# the actual list isn't finalized yet and these examples shouldn't need
+# updating when it is. The real validation always happens live against
+# GET /clinics/directory (see _find_clinic in actions.py), never against
+# anything trained here — these examples only help recognition when a
+# clinic is mentioned inline in a sentence for OTHER intents (wait time,
+# hours, etc.); the join_queue flow itself doesn't depend on these at all,
+# since join_queue_form captures the reply as raw text regardless of
+# whether it's recognized as this entity.
 - intent: join_queue
   examples: |
     - I want to join the queue
@@ -184,6 +195,24 @@ nlu:
     - gusto ko pumila para sa [CBC](service_name)
     - I want to join the [laboratory](service_name) queue
     - join queue for [X-ray](service_name)
+    - I want to join the queue at [Riverside Medical Center](clinic_name)
+    - join queue at [Metro Health Clinic](clinic_name)
+    - pila ako sa [Downtown Wellness Branch](clinic_name)
+    - I'd like to line up at [Northgate Clinic](clinic_name)
+    - queue me at [Sunrise Health Center](clinic_name)
+    - sign me up at [Lakeside Diagnostics](clinic_name)
+    - [Riverside Medical Center](clinic_name)
+    - [Riverside](clinic_name)
+    - [Metro Health Clinic](clinic_name)
+    - [Metro](clinic_name)
+    - [Downtown Wellness Branch](clinic_name)
+    - [Downtown](clinic_name)
+    - [Northgate Clinic](clinic_name)
+    - [Northgate](clinic_name)
+    - [Sunrise Health Center](clinic_name)
+    - [Sunrise](clinic_name)
+    - [Lakeside Diagnostics](clinic_name)
+    - [Lakeside](clinic_name)
 
 - intent: cancel_queue
   examples: |
@@ -271,6 +300,9 @@ nlu:
     - ilang min p
     - keln aq tatawagin
     - my eta b
+    - how long is the wait at [Riverside Medical Center](clinic_name)
+    - wait time sa [Metro Health Clinic](clinic_name)
+    - is [Downtown Wellness Branch](clinic_name) busy right now
 
 - intent: get_queue_number
   examples: |
@@ -325,6 +357,8 @@ nlu:
     - bukas p b ngaun
     - anung oras sara
     - keln kau open
+    - what time does [Riverside Medical Center](clinic_name) open
+    - operating hours for [Metro Health Clinic](clinic_name)
 
 - intent: nearest_clinic
   examples: |
@@ -401,6 +435,29 @@ nlu:
     - anung serv nyo
 
 # ── Appointment ──────────────────────────────────────────────────────────────
+# Declared in domain.yml (with its own action_get_my_appointments and rule)
+# but had zero NLU training examples at all until now — the training log
+# explicitly flagged this: "listed in the domain file, but is not found in
+# the NLU training data".
+- intent: ask_my_appointments
+  examples: |
+    - what are my appointments
+    - when is my next appointment
+    - do I have any appointments
+    - show my appointments
+    - my upcoming appointments
+    - what appointments do I have
+    - check my appointments
+    - do I have an appointment today
+    - when's my next appointment
+    - anong appointment ko
+    - kailan ang appointment ko
+    - may appointment ba ako
+    - pakita nga yung mga appointment ko
+    - ano pa mga booking ko
+    - my schedule
+    - what's my schedule
+
 - intent: appointment_inquiry
   examples: |
     - how does appointment work
@@ -494,6 +551,9 @@ nlu:
     - ibang oras n lng
     - ibang araw n lng
 
+# Short/terse phrasings added below — the longer examples alone weren't
+# generalizing well to these; a bare "recommend me" was falling to
+# nlu_fallback instead of matching this intent.
 - intent: recommendation_request
   examples: |
     - can you recommend a clinic
@@ -517,6 +577,17 @@ nlu:
     - ano pinakamagandang branch
     - anong branch ang irerecommend mo
     - saan mas mabilis ang pila
+    - recommend me
+    - recommend
+    - recommend me a clinic
+    - recommend pls
+    - any recommendation
+    - give me a recommendation
+    - suggest one
+    - suggest for me
+    - i need a recommendation
+    - can you recommend
+    - irecommend mo nga
 
 # ── Support ──────────────────────────────────────────────────────────────────
 - intent: human_assistance
@@ -815,20 +886,3 @@ nlu:
     - how do I invest
     - help me with my math
     - solve this equation
-# ── New: patient's own appointments ──────────────────────────────────────────
-- intent: ask_my_appointments
-  examples: |
-    - what are my appointments
-    - do I have any upcoming appointments
-    - show my appointments
-    - when is my next appointment
-    - check my booking
-    - what's my schedule
-    - anong schedule ko
-    - meron ba akong appointment
-    - kelan ang appointment ko
-    - check ko yung booking ko
-    - my upcoming appointment ba ako
-    - anong susunod na appointment ko
-    - my appt b aq
-    - kln appt q
