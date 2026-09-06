@@ -51,6 +51,30 @@ rules:
     - active_loop: null
     - action: action_join_queue
 
+# "Interruption" handling — without this, ANY message sent while a form is
+# active gets treated as an attempt to fill the slot it's currently
+# asking for (that's just how Rasa forms work by default), even something
+# like "recommend one" that clearly means something else. This answers
+# the recommendation, then re-invokes the form so it resumes asking for
+# the clinic right after — the user doesn't lose their place in the flow.
+- rule: Recommend while join queue form is active
+  condition:
+    - active_loop: join_queue_form
+  steps:
+    - intent: recommendation_request
+    - action: action_get_clinic_recommendations
+    - action: join_queue_form
+    - active_loop: join_queue_form
+
+- rule: Recommend while appointment form is active
+  condition:
+    - active_loop: appointment_form
+  steps:
+    - intent: recommendation_request
+    - action: action_get_clinic_recommendations
+    - action: appointment_form
+    - active_loop: appointment_form
+
 - rule: Cancel queue
   steps:
     - intent: cancel_queue

@@ -302,10 +302,16 @@ responses:
   # date/time are asked dynamically instead (action_ask_date shows nothing
   # special, but action_ask_time shows the REAL available slots for the
   # date just given — see actions.py). clinic_name/service_name stay static.
-  # utter_ask_clinic_name is reused as-is by join_queue_form too — Rasa
-  # doesn't require a separate per-form utterance when the slot name matches.
+  # utter_ask_clinic_name is appointment_form's prompt. join_queue_form
+  # gets its own utter_ask_join_queue_form_clinic_name (Rasa's
+  # form-specific override naming: utter_ask_<form>_<slot>) — reusing the
+  # same generic prompt for both meant the bot said "book at" while you
+  # were trying to join a queue, which read as if it had misunderstood
+  # what you were doing.
   utter_ask_clinic_name:
     - text: "Which branch would you like to book at?"
+  utter_ask_join_queue_form_clinic_name:
+    - text: "Which branch would you like to queue at?"
   utter_ask_service_name:
     - text: "What service or test is this for?"
   utter_ask_date:

@@ -171,6 +171,18 @@ def _find_clinic(clinic_name: Optional[str], tracker: Tracker) -> Optional[Dict]
         return None
     data = _get("clinics/directory", tracker)
     clinics = (data or {}).get("data", [])
+    # Temporary diagnostic logging — every prior fix has checked out
+    # correct in the code on both sides (this matching logic AND the
+    # actual /clinics/directory endpoint contract), so the remaining
+    # cause has to be something only visible at runtime: is the HTTP call
+    # even succeeding, what does hq-server actually return, is the clinic
+    # list empty, or is the name genuinely not matching for some reason
+    # not visible from reading code alone. Check the action-server's log
+    # for this exact line after one test message — remove once resolved.
+    logger.info(
+        "[HQ-Rasa][DEBUG] _find_clinic(%r): HQ_SERVER=%s, got %d clinic(s) back, names=%s",
+        clinic_name, HQ_SERVER, len(clinics), [c.get("name") for c in clinics],
+    )
     name_lower = clinic_name.lower()
     for c in clinics:
         if name_lower in c.get("name", "").lower():
