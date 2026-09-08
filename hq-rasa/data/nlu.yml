@@ -214,6 +214,11 @@ nlu:
     - [Lakeside Diagnostics](clinic_name)
     - [Lakeside](clinic_name)
 
+    - queue me at [Vertis](clinic_name)
+    - I want to queue at [Vertis](clinic_name)
+    - put me in line at [Cubao](clinic_name)
+    - join the queue at [Hi-Precision - Vertis](clinic_name)
+    - pila ako sa [Vertis](clinic_name)
 - intent: cancel_queue
   examples: |
     - cancel my queue
@@ -505,6 +510,11 @@ nlu:
     - paki book ng appt
     - pa resrv ng slot
 
+    - book me at [Vertis](clinic_name)
+    - can you book me at [Hi-Precision - Vertis](clinic_name)
+    - I want an appointment at [Cubao](clinic_name)
+    - schedule me at [Eastwood](clinic_name)
+    - book a test at [Vertis](clinic_name)
 - intent: cancel_appointment
   examples: |
     - cancel my appointment
@@ -828,6 +838,30 @@ nlu:
     - anu chinecheck s ua
     - pnu ung ecg
     - anu ung fbs
+
+
+
+# ── Form / bare-value replies ───────────────────────────────────────────────
+# DIET learns that one- or two-word branch/service replies are valid
+# in-domain "inform" turns. The active form decides which slot is requested,
+# while the Python validators resolve values against live clinic data.
+- intent: inform
+  examples: |
+    - [Vertis](clinic_name)
+    - [Hi-Precision - Vertis](clinic_name)
+    - [Cubao](clinic_name)
+    - [Hi-Precision Diagnostics Vertis North](clinic_name)
+    - [Eastwood](clinic_name)
+    - [CBC](service_name)
+    - [Urinalysis](service_name)
+    - [X-ray](service_name)
+    - [Ultrasound](service_name)
+    - [ECG](service_name)
+    - [FBS](service_name)
+    - [Drug Testing](service_name)
+    - [10:00 AM](time)
+    - [tomorrow](date)
+    - [September 10](date)
 
 # ── Out of scope ─────────────────────────────────────────────────────────────
 # Kept intentionally small — this is a representative sample, not an

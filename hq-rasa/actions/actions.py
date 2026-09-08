@@ -32,6 +32,11 @@ import os
 import re
 import logging
 
+try:
+    from pymongo import MongoClient
+except ImportError:  # HTTP directory fallback remains available if dependency is missing.
+    MongoClient = None
+
 logger = logging.getLogger(__name__)
 
 HQ_SERVER = os.getenv("HQ_SERVER_URL", "http://localhost:4000/api").rstrip("/")
@@ -164,30 +169,191 @@ def _fallback_message() -> str:
     )
 
 
-# ── Clinic lookup (GET /clinics/directory is public, no role restriction) ──
+# ── Clinic lookup (MongoDB first, HTTP directory fallback) ───────────────────
+
+_MONGO_CLIENT = None
+_MONGO_DB = None
+
+# Words that add little or no identifying value when patients name a branch.
+_CLINIC_NOISE_WORDS = {
+    "hi", "precision", "diagnostics", "diagnostic", "branch", "clinic",
+    "the", "at", "in", "of", "and", "health", "center", "centre",
+}
+
+def _normalize_clinic_text(value: Any) -> str:
+    """Normalize a patient/DB clinic name for tolerant comparison."""
+    if value is None:
+        return ""
+    text = str(value).lower().strip()
+    text = text.replace("&", " and ")
+    text = re.sub(r"[^a-z0-9]+", " ", text)
+    tokens = [
+        token for token in text.split()
+        if token and token not in _CLINIC_NOISE_WORDS
+    ]
+    return " ".join(tokens)
+
+
+def _clinic_tokens(value: Any) -> set:
+    return set(_normalize_clinic_text(value).split())
+
+
+def _mongo_database():
+    """Return the configured MongoDB database, or None if unavailable.
+
+    The action server deliberately does not share the Node/Mongoose connection:
+    pymongo owns its own connection pool. If the URI has a default database,
+    get_default_database() uses it; otherwise we use the database component in
+    the URI when present. Any connection/query failure is handled by the HTTP
+    directory fallback in _load_clinics().
+    """
+    global _MONGO_CLIENT, _MONGO_DB
+
+    if MongoClient is None:
+        logger.warning("[HQ-Rasa] pymongo is not installed; using HTTP clinic fallback.")
+        return None
+
+    uri = os.getenv("MONGODB_URI")
+    if not uri:
+        logger.warning("[HQ-Rasa] MONGODB_URI is not configured; using HTTP clinic fallback.")
+        return None
+
+    try:
+        if _MONGO_DB is not None:
+            return _MONGO_DB
+
+        _MONGO_CLIENT = MongoClient(
+            uri,
+            serverSelectionTimeoutMS=max(1000, min(TIMEOUT * 1000, 5000)),
+            connectTimeoutMS=max(1000, min(TIMEOUT * 1000, 5000)),
+        )
+        # Force a cheap connectivity check once, rather than discovering a
+        # dead Mongo connection only after several actions have timed out.
+        _MONGO_CLIENT.admin.command("ping")
+
+        try:
+            _MONGO_DB = _MONGO_CLIENT.get_default_database()
+        except Exception:
+            _MONGO_DB = None
+
+        if _MONGO_DB is None:
+            # If the URI has no database component, use the conventional
+            # HealthQueue+ database name rather than guessing from credentials.
+            from urllib.parse import urlparse, unquote
+            path = urlparse(uri).path.strip("/")
+            db_name = unquote(path.split("/")[0]) if path else ""
+            if not db_name:
+                db_name = os.getenv("MONGODB_DB", "HQ_DB")
+            _MONGO_DB = _MONGO_CLIENT[db_name]
+
+        return _MONGO_DB
+    except Exception as exc:
+        logger.warning("[HQ-Rasa] MongoDB clinic lookup unavailable: %s", exc)
+        _MONGO_CLIENT = None
+        _MONGO_DB = None
+        return None
+
+
+def _load_clinics(tracker: Tracker) -> List[Dict]:
+    """Load active clinics from MongoDB, then fall back to /clinics/directory."""
+    db = _mongo_database()
+    if db is not None:
+        try:
+            docs = list(db["clinics"].find({"isActive": {"$ne": False}}))
+            if docs:
+                return docs
+            logger.warning("[HQ-Rasa] MongoDB returned no active clinics; trying HTTP directory.")
+        except Exception as exc:
+            logger.warning("[HQ-Rasa] MongoDB clinics query failed: %s; trying HTTP directory.", exc)
+
+    data = _get("clinics/directory", tracker)
+    if not data:
+        return []
+    clinics = data.get("data")
+    if isinstance(clinics, list):
+        return clinics
+    clinics = data.get("clinics")
+    return clinics if isinstance(clinics, list) else []
+
 
 def _find_clinic(clinic_name: Optional[str], tracker: Tracker) -> Optional[Dict]:
-    if not clinic_name:
+    """Resolve colloquial branch names to a canonical clinic document.
+
+    Matching is intentionally tolerant:
+      1. normalize punctuation/case and remove generic clinic words;
+      2. exact normalized match;
+      3. normalized substring match;
+      4. keyword-set intersection with a score favoring coverage and specificity.
+
+    Examples:
+      "Vertis" -> "Hi-Precision - Vertis"
+      "hi precision vertis" -> "Hi-Precision - Vertis"
+      "Vertis branch" -> "Hi-Precision - Vertis"
+    """
+    if not clinic_name or not str(clinic_name).strip():
         return None
-    data = _get("clinics/directory", tracker)
-    clinics = (data or {}).get("data", [])
-    # Temporary diagnostic logging — every prior fix has checked out
-    # correct in the code on both sides (this matching logic AND the
-    # actual /clinics/directory endpoint contract), so the remaining
-    # cause has to be something only visible at runtime: is the HTTP call
-    # even succeeding, what does hq-server actually return, is the clinic
-    # list empty, or is the name genuinely not matching for some reason
-    # not visible from reading code alone. Check the action-server's log
-    # for this exact line after one test message — remove once resolved.
+
+    clinics = _load_clinics(tracker)
+    if not clinics:
+        logger.warning("[HQ-Rasa] _find_clinic(%r): no clinic records available.", clinic_name)
+        return None
+
+    query_norm = _normalize_clinic_text(clinic_name)
+    query_tokens = _clinic_tokens(clinic_name)
+    if not query_norm:
+        return None
+
+    scored = []
+    for clinic in clinics:
+        canonical = clinic.get("name") or clinic.get("clinicName") or ""
+        candidate_norm = _normalize_clinic_text(canonical)
+        candidate_tokens = _clinic_tokens(canonical)
+        if not candidate_norm:
+            continue
+
+        score = 0.0
+
+        if query_norm == candidate_norm:
+            score += 1000
+
+        if query_norm in candidate_norm:
+            score += 500 + min(len(query_norm), 100)
+
+        if candidate_norm in query_norm:
+            score += 350 + min(len(candidate_norm), 100)
+
+        overlap = query_tokens & candidate_tokens
+        if overlap:
+            # Reward shared identifying words, but penalize a match that only
+            # shares a generic one-word location when a more specific query
+            # exists.
+            coverage = len(overlap) / max(len(query_tokens), 1)
+            specificity = sum(len(token) for token in overlap)
+            score += coverage * 200 + specificity
+
+        if score > 0:
+            scored.append((score, len(overlap), clinic))
+
+    if not scored:
+        logger.info("[HQ-Rasa] No clinic match for %r", clinic_name)
+        return None
+
+    scored.sort(key=lambda item: (item[0], item[1]), reverse=True)
+    clinic = scored[0][2]
+
+    # Always return the canonical DB name and string ID. This is important:
+    # downstream queue/appointment actions must use the actual Mongo _id, not
+    # the patient's colloquial branch spelling.
+    if clinic.get("_id") is not None:
+        clinic["_id"] = clinic["_id"]
+
     logger.info(
-        "[HQ-Rasa][DEBUG] _find_clinic(%r): HQ_SERVER=%s, got %d clinic(s) back, names=%s",
-        clinic_name, HQ_SERVER, len(clinics), [c.get("name") for c in clinics],
+        "[HQ-Rasa] _find_clinic(%r) -> %r (%s)",
+        clinic_name,
+        clinic.get("name"),
+        str(clinic.get("_id", "")),
     )
-    name_lower = clinic_name.lower()
-    for c in clinics:
-        if name_lower in c.get("name", "").lower():
-            return c
-    return None
+    return clinic
 
 
 def _format_wait(minutes: int) -> str:
@@ -443,23 +609,43 @@ class ActionGetClinicServices(Action):
 
     def run(self, dispatcher, tracker, domain):
         clinic_name = tracker.get_slot("clinic_name")
+        clinic_id = _metadata_clinic_id(tracker) or tracker.get_slot("last_clinic_id")
+
         clinic = _find_clinic(clinic_name, tracker) if clinic_name else None
 
+        # If a clinic ID was supplied by the authenticated patient context but
+        # no clinic name is set, resolve the exact record directly.
+        if clinic is None and clinic_id:
+            clinics = _load_clinics(tracker)
+            clinic = next(
+                (c for c in clinics if str(c.get("_id", "")) == str(clinic_id)),
+                None,
+            )
+
         if clinic:
-            services = [s for s in clinic.get("services", []) if s.get("isAvailable", True)]
-            if services:
-                svc_names = ", ".join(s["name"] for s in services)
-                dispatcher.utter_message(text=f"**{clinic['name']}** offers: {svc_names}. Which one would you like?")
+            services = [
+                s for s in (clinic.get("services") or [])
+                if isinstance(s, dict) and s.get("isAvailable") is True
+            ]
+            service_names = [
+                str(s.get("name", "")).strip()
+                for s in services
+                if str(s.get("name", "")).strip()
+            ]
+            if service_names:
+                dispatcher.utter_message(
+                    text=f"**{clinic.get('name', 'This branch')}** currently offers: "
+                         f"{', '.join(service_names)}. Which one would you like?"
+                )
             else:
-                dispatcher.utter_message(text=f"No listed services for {clinic['name']} right now.")
-            return [SlotSet("last_clinic_id", str(clinic.get("_id", "")))]
+                dispatcher.utter_message(
+                    text=f"There are no currently available services listed for **{clinic.get('name', 'this branch')}**."
+                )
+            return [SlotSet("clinic_name", clinic.get("name")),
+                    SlotSet("last_clinic_id", str(clinic.get("_id", "")))]
 
         dispatcher.utter_message(
-            text=(
-                "Hi-Precision Diagnostics offers: **Laboratory tests** (CBC, urinalysis, blood chemistry, "
-                "HbA1c, lipid profile), **Imaging** (X-ray, Ultrasound, 2D Echo), **ECG**, **Pap Smear**, "
-                "**Drug Testing**, and **Executive Health Packages**."
-            )
+            text="Please tell me the branch name first so I can show its current available services."
         )
         return []
 
@@ -468,12 +654,7 @@ class ActionGetClinicServices(Action):
 # ACTION: Join / check / cancel queue — patient-authenticated
 # ─────────────────────────────────────────────────────────────────────────────
 class ValidateJoinQueueForm(FormValidationAction):
-    """Backs join_queue_form (see domain.yml) — reuses the exact same
-    clinic-lookup logic as ValidateAppointmentForm.validate_clinic_name so
-    a bare reply like "Vertis" or "Hi-Precision - Vertis" resolves to a
-    real clinic regardless of NLU intent/entity confidence, since the
-    form's from_text mapping captures the raw reply directly."""
-
+    """Validate the selected branch against the live clinic directory/MongoDB."""
     def name(self) -> Text:
         return "validate_join_queue_form"
 
@@ -481,10 +662,25 @@ class ValidateJoinQueueForm(FormValidationAction):
         clinic = _find_clinic(slot_value, tracker)
         if not clinic:
             dispatcher.utter_message(
-                text=f"I couldn't find a branch called \"{slot_value}\" — could you check the name, or ask me to recommend one?"
+                text=f'I couldn\'t find a branch matching "{slot_value}". '
+                     "Please give the branch name, or ask me to recommend one."
             )
-            return {"clinic_name": None}
-        return {"clinic_name": clinic["name"], "last_clinic_id": str(clinic["_id"])}
+            return {"clinic_name": None, "last_clinic_id": None}
+
+        return {
+            "clinic_name": clinic.get("name"),
+            "last_clinic_id": str(clinic.get("_id", "")),
+        }
+
+    def validate_service_name(self, slot_value, dispatcher, tracker, domain):
+        clinic = _find_clinic(tracker.get_slot("clinic_name"), tracker)
+        service = _find_service_for_clinic(clinic, slot_value)
+        if not service:
+            dispatcher.utter_message(
+                text=f'"{slot_value}" is not an available service at this branch.'
+            )
+            return {"service_name": None}
+        return {"service_name": service.get("name")}
 
 
 class ActionJoinQueue(Action):
@@ -647,55 +843,139 @@ class ActionConfirmCancelQueue(Action):
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _validate_date_slot(slot_value, dispatcher, tracker):
-    """Parses free text to an ISO date and fetches real availability.
-    Returns a slot dict — {"date": None} on failure, or {"date": iso,
-    "available_slots": [...]} on success. Shared by both forms."""
-    iso = _parse_date_to_iso(slot_value)
+    """Parse an ISO-compatible date and verify real slots through hq-server.
+
+    We do NOT silently fall back to DEFAULT_TIME_SLOTS when the API is down:
+    accepting a time based on stale/static data would make the form claim a
+    slot is bookable when the backend cannot confirm it.
+    """
+    iso = _parse_date_to_iso(str(slot_value or ""))
     if not iso:
-        dispatcher.utter_message(text="What date works for you? (e.g. \"tomorrow\", \"next Monday\", \"Sept 10\")")
-        return {"date": None}
+        dispatcher.utter_message(
+            text='I couldn\'t understand that date. Please use a date like '
+                 '"tomorrow", "next Monday", or "September 10".'
+        )
+        return {"date": None, "available_slots": None}
 
-    clinic_id = tracker.get_slot("last_clinic_id")
-    data = _get("appointments/available-slots", tracker, {"clinicId": clinic_id, "date": iso})
-    available = (data or {}).get("data") or DEFAULT_TIME_SLOTS
+    clinic_id = tracker.get_slot("last_clinic_id") or _metadata_clinic_id(tracker)
+    if not clinic_id:
+        dispatcher.utter_message(
+            text="I need the clinic first so I can check its available appointment times."
+        )
+        return {"date": None, "available_slots": None}
 
+    data = _get(
+        "appointments/available-slots",
+        tracker,
+        {"clinicId": str(clinic_id), "date": iso},
+    )
+
+    if not data or data.get("success") is False:
+        dispatcher.utter_message(
+            text="I couldn't check the live appointment slots right now. Please try the date again in a moment."
+        )
+        return {"date": None, "available_slots": None}
+
+    available = data.get("data")
+    if not isinstance(available, list):
+        available = data.get("slots")
+
+    if not isinstance(available, list):
+        dispatcher.utter_message(
+            text="I couldn't get the clinic's available times right now. Please try again."
+        )
+        return {"date": None, "available_slots": None}
+
+    available = [str(slot).strip() for slot in available if str(slot).strip()]
     if not available:
-        dispatcher.utter_message(text=f"No slots left on {iso} — want to try a different date?")
-        return {"date": None}
+        dispatcher.utter_message(
+            text=f"No appointment slots are available on **{iso}**. Would you like to try another date?"
+        )
+        return {"date": None, "available_slots": None}
 
-    lines = [f"Available times on **{iso}**:\n"] + [f"• {s}" for s in available[:10]]
-    dispatcher.utter_message(text="\n".join(lines))
+    dispatcher.utter_message(
+        text=f"Available times on **{iso}**: {', '.join(available[:16])}"
+    )
     return {"date": iso, "available_slots": available}
 
 
 def _validate_time_slot(slot_value, dispatcher, tracker):
-    """Matches free text against the available_slots fetched by
-    _validate_date_slot. Shared by both forms."""
-    available = tracker.get_slot("available_slots") or DEFAULT_TIME_SLOTS
-    matched = _match_time_slot(slot_value, available)
-    if not matched:
-        dispatcher.utter_message(text=f"I didn't catch that time — please pick one of: {', '.join(available[:10])}")
+    """Accept only a time returned by the live availability endpoint."""
+    available = tracker.get_slot("available_slots") or []
+    if not available:
+        dispatcher.utter_message(
+            text="I don't have a confirmed list of available times yet. Please provide the date again."
+        )
         return {"time": None}
+
+    matched = _match_time_slot(str(slot_value or ""), available)
+    if not matched:
+        dispatcher.utter_message(
+            text=f"That time is not available. Please choose one of: {', '.join(available[:16])}"
+        )
+        return {"time": None}
+
     return {"time": matched}
 
 
 class ActionAskTime(Action):
-    """Custom dynamic prompt for the `time` slot — used by BOTH
-    appointment_form and reschedule_form (Rasa checks for action_ask_<slot>
-    before falling back to utter_ask_<slot>, regardless of which form is
-    active). Re-shows the real available slots fetched by
-    _validate_date_slot rather than a generic "what time?" prompt."""
-
+    """Show the actual available times returned for the selected date."""
     def name(self) -> Text:
         return "action_ask_time"
 
     def run(self, dispatcher, tracker, domain):
-        available = tracker.get_slot("available_slots")
+        available = tracker.get_slot("available_slots") or []
         if available:
-            dispatcher.utter_message(text=f"Which time works for you? ({', '.join(available[:10])})")
+            dispatcher.utter_message(
+                text=f"Which time works for you? ({', '.join(available[:16])})"
+            )
         else:
             dispatcher.utter_message(text="What time would you like?")
         return []
+
+
+def _find_service_for_clinic(clinic: Optional[Dict], service_name: Any) -> Optional[Dict]:
+    """Resolve a patient service/test name against the selected clinic's live services."""
+    if not clinic or not service_name:
+        return None
+
+    query = str(service_name).strip()
+    qnorm = re.sub(r"[^a-z0-9]+", " ", query.lower()).strip()
+    qtokens = set(qnorm.split())
+    if not qnorm:
+        return None
+
+    best = None
+    best_score = 0.0
+
+    for service in clinic.get("services") or []:
+        if not isinstance(service, dict) or service.get("isAvailable") is not True:
+            continue
+        name = str(service.get("name", "")).strip()
+        if not name:
+            continue
+
+        cnorm = re.sub(r"[^a-z0-9]+", " ", name.lower()).strip()
+        ctokens = set(cnorm.split())
+        score = 0.0
+
+        if qnorm == cnorm:
+            score += 1000
+        if qnorm in cnorm:
+            score += 500
+        if cnorm in qnorm:
+            score += 350
+
+        overlap = qtokens & ctokens
+        if overlap:
+            score += (len(overlap) / max(len(qtokens), 1)) * 200
+            score += sum(len(x) for x in overlap)
+
+        if score > best_score:
+            best_score = score
+            best = service
+
+    return best
 
 
 class ValidateAppointmentForm(FormValidationAction):
@@ -705,9 +985,49 @@ class ValidateAppointmentForm(FormValidationAction):
     def validate_clinic_name(self, slot_value, dispatcher, tracker, domain):
         clinic = _find_clinic(slot_value, tracker)
         if not clinic:
-            dispatcher.utter_message(text=f"I couldn't find a branch called \"{slot_value}\" — could you check the name?")
-            return {"clinic_name": None}
-        return {"clinic_name": clinic["name"], "last_clinic_id": str(clinic["_id"])}
+            dispatcher.utter_message(
+                text=f'I couldn\'t find a branch matching "{slot_value}". '
+                     "Please check the branch name or ask me to recommend one."
+            )
+            return {"clinic_name": None, "last_clinic_id": None}
+
+        return {
+            "clinic_name": clinic.get("name"),
+            "last_clinic_id": str(clinic.get("_id", "")),
+        }
+
+    def validate_service_name(self, slot_value, dispatcher, tracker, domain):
+        clinic = _find_clinic(
+            tracker.get_slot("clinic_name"),
+            tracker,
+        )
+        if clinic is None:
+            clinic_id = tracker.get_slot("last_clinic_id") or _metadata_clinic_id(tracker)
+            if clinic_id:
+                clinic = next(
+                    (
+                        c for c in _load_clinics(tracker)
+                        if str(c.get("_id", "")) == str(clinic_id)
+                    ),
+                    None,
+                )
+
+        service = _find_service_for_clinic(clinic, slot_value)
+        if not service:
+            available = [
+                str(s.get("name", "")).strip()
+                for s in (clinic or {}).get("services", [])
+                if isinstance(s, dict)
+                and s.get("isAvailable") is True
+                and str(s.get("name", "")).strip()
+            ]
+            suffix = f" Available services: {', '.join(available[:12])}." if available else ""
+            dispatcher.utter_message(
+                text=f'"{slot_value}" is not an available service at this branch.{suffix}'
+            )
+            return {"service_name": None}
+
+        return {"service_name": service.get("name")}
 
     def validate_date(self, slot_value, dispatcher, tracker, domain):
         return _validate_date_slot(slot_value, dispatcher, tracker)

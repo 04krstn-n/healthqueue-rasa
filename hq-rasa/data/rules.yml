@@ -140,6 +140,11 @@ rules:
     - action: action_get_clinic_services
 
 - rule: Clinic recommendation
+  # This rule is only for a free-standing recommendation request. When a
+  # form is active, the dedicated interruption rules above handle it and then
+  # return control to that form.
+  condition:
+    - active_loop: null
   steps:
     - intent: recommendation_request
     - action: action_get_clinic_recommendations
