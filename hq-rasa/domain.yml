@@ -6,7 +6,6 @@ intents:
   - affirm
   - deny
   - bot_challenge
-  - inform
   - out_of_scope
   # Queue
   - join_queue
@@ -52,34 +51,16 @@ slots:
     mappings:
       - type: from_entity
         entity: clinic_name
-        not_intent:
-          - join_queue
-          - book_appointment
-          - cancel_queue
-          - cancel_appointment
-          - check_queue_status
-          - greet
-          - goodbye
-          - out_of_scope
-          - affirm
-          - deny
+      # Captures the reply RAW, regardless of NLU intent/entity confidence,
+      # while join_queue_form is actively asking for it — this is the real
+      # fix for a bare reply like "Vertis" or "Hi-Precision - Vertis"
+      # falling to nlu_fallback (there were previously zero clinic_name
+      # entity training examples at all, so extraction alone could never
+      # be relied on). Same pattern appointment_form already uses for
+      # date/time below.
       - type: from_text
-        not_intent:
-          - join_queue
-          - book_appointment
-          - cancel_queue
-          - cancel_appointment
-          - check_queue_status
-          - greet
-          - goodbye
-          - out_of_scope
-          - affirm
-          - deny
-          - recommendation_request
         conditions:
           - active_loop: join_queue_form
-            requested_slot: clinic_name
-          - active_loop: appointment_form
             requested_slot: clinic_name
 
   service_name:
@@ -88,33 +69,6 @@ slots:
     mappings:
       - type: from_entity
         entity: service_name
-        not_intent:
-          - join_queue
-          - book_appointment
-          - cancel_queue
-          - cancel_appointment
-          - check_queue_status
-          - greet
-          - goodbye
-          - out_of_scope
-          - affirm
-          - deny
-      - type: from_text
-        not_intent:
-          - join_queue
-          - book_appointment
-          - cancel_queue
-          - cancel_appointment
-          - check_queue_status
-          - greet
-          - goodbye
-          - out_of_scope
-          - affirm
-          - deny
-          - recommendation_request
-        conditions:
-          - active_loop: appointment_form
-            requested_slot: service_name
 
   location:
     type: text
@@ -123,8 +77,12 @@ slots:
       - type: from_entity
         entity: location
 
-  # Date/time are raw-text protected while either form is asking for them.
-  # The validators convert/verify the value before the slot is accepted.
+  # date/time now do double duty: still fill from an NLU-tagged entity
+  # anywhere in the conversation (unchanged), AND fill from plain free text
+  # while the appointment_form/reschedule_form is actively asking for them
+  # — that second mapping is what lets the booking/reschedule flow collect
+  # a real date and time slot from the patient instead of just linking to
+  # the app.
   date:
     type: text
     influence_conversation: false
@@ -132,18 +90,6 @@ slots:
       - type: from_entity
         entity: date
       - type: from_text
-        not_intent:
-          - join_queue
-          - book_appointment
-          - cancel_queue
-          - cancel_appointment
-          - check_queue_status
-          - greet
-          - goodbye
-          - out_of_scope
-          - affirm
-          - deny
-          - recommendation_request
         conditions:
           - active_loop: appointment_form
             requested_slot: date
@@ -157,18 +103,6 @@ slots:
       - type: from_entity
         entity: time
       - type: from_text
-        not_intent:
-          - join_queue
-          - book_appointment
-          - cancel_queue
-          - cancel_appointment
-          - check_queue_status
-          - greet
-          - goodbye
-          - out_of_scope
-          - affirm
-          - deny
-          - recommendation_request
         conditions:
           - active_loop: appointment_form
             requested_slot: time
@@ -357,6 +291,14 @@ responses:
 
   utter_clarification_prompt:
     - text: "Sure! Here's what I can help with: checking your queue, joining a queue, finding clinics, booking appointments, or checking clinic hours. Which one do you need?"
+
+  # Shown when a form (appointment_form / join_queue_form / reschedule_form)
+  # gets cancelled mid-way — either explicitly (deny/"never mind") or
+  # because the patient asked for something else entirely. See rules.yml's
+  # interruption-handling rules for where this is actually used.
+  utter_form_cancelled:
+    - text: "No problem, I've cancelled that. What would you like to do instead?"
+    - text: "Okay, never mind that then! Anything else I can help with?"
 
   utter_escalation_sent:
     - text: "I've flagged your concern to our staff. A healthcare team member will review it shortly. You can also call your branch directly for urgent matters. Is there anything else I can note for them?"

@@ -24,7 +24,6 @@ right after DIETClassifier + EntitySynonymMapper, and before FallbackClassifier.
 
 from __future__ import annotations
 from typing import Any, Dict, List, Text
-import re
 
 from rasa.engine.graph import ExecutionContext, GraphComponent
 from rasa.engine.recipes.default_recipe import DefaultV1Recipe
@@ -80,12 +79,8 @@ DOMAIN_KEYWORDS = {
     # staff / complaint
     "staff", "agent", "human", "person", "tao", "complaint", "reklamo",
     "problem", "issue", "sumbong",
-    # queue actions / form interruptions
+    # queue actions
     "join", "sumali", "pumila", "status",
-    "recommend", "recommendation", "suggest", "suggestion",
-    # common branch/location tokens; these are deliberately small and only
-    # serve as a second line of defense because forms bypass this gate.
-    "vertis", "north", "east", "qc", "edsa", "cubao",
 }
 
 ALWAYS_ALLOWED_INTENTS = {"greet", "goodbye", "affirm", "deny", "bot_challenge", "nlu_fallback"}
@@ -123,33 +118,9 @@ class DomainKeywordGate(GraphComponent):
             if intent_name in ALWAYS_ALLOWED_INTENTS:
                 continue
 
-            # Rasa forms may receive legitimate free-text values that are not
-            # domain keywords (e.g. "Vertis", "CBC", "tomorrow", "10am").
-            # If the active-loop marker is present on the NLU Message, never
-            # override that turn to out_of_scope. This keeps the gate from
-            # fighting form slot filling.
-            active_loop = message.get("active_loop")
-            if not active_loop:
-                metadata = message.get("metadata") or {}
-                active_loop = metadata.get("active_loop")
-            if active_loop:
-                continue
-
             has_domain_word = any(kw in text for kw in DOMAIN_KEYWORDS)
 
-            # The NLU graph component does not receive the Core Tracker
-            # object, so some Rasa deployments do not expose active_loop on
-            # the Message. Keep a narrow fallback for values that are
-            # structurally likely to be form answers (date/time/branch-like
-            # names) instead of classifying them as out_of_scope.
-            looks_like_form_value = bool(re.match(
-                r"^(today|tomorrow|tonight|\d{1,2}(:\d{2})?\s*(am|pm)?|"
-                r"\d{1,2}[/-]\d{1,2}([/-]\d{2,4})?|"
-                r"(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\s+\d{1,2}(,?\s+\d{4})?)$",
-                text.strip(),
-            ))
-
-            if not has_domain_word and not looks_like_form_value:
+            if not has_domain_word:
                 forced = {"name": "out_of_scope", "confidence": 1.0}
                 message.set(INTENT, forced, add_to_output=True)
                 ranking = message.get(INTENT_RANKING_KEY, []) or []

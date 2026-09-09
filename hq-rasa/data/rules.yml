@@ -51,29 +51,144 @@ rules:
     - active_loop: null
     - action: action_join_queue
 
-# "Interruption" handling — without this, ANY message sent while a form is
-# active gets treated as an attempt to fill the slot it's currently
-# asking for (that's just how Rasa forms work by default), even something
-# like "recommend one" that clearly means something else. This answers
-# the recommendation, then re-invokes the form so it resumes asking for
-# the clinic right after — the user doesn't lose their place in the flow.
-- rule: Recommend while join queue form is active
+# "Interruption" handling for forms in general — without this, ANY
+# message sent while a form is active gets treated as an attempt to fill
+# the slot it's currently asking for (that's just how Rasa forms work by
+# default). The rules below handle switching tasks or backing out
+# entirely; see the note further down for why a recommendation-request
+# interruption specifically was deliberately NOT included.
+# Recommend-while-form-active interruption rules were removed here —
+# they were the actual cause of the "Hi-Precision - Vertis" failure in
+# the reported conversation. Those rules fired purely off classified
+# intent, with no check for whether the message might actually BE a
+# valid clinic name being typed in response to "which branch?" — so a
+# misclassification (recommendation_request scored higher than it
+# should have for a clinic name) hijacked the message before from_text
+# ever got a chance to capture it as the clinic name it actually was.
+# Reliably capturing a typed clinic name is the core, expected happy
+# path for these forms; asking for a recommendation mid-form is a much
+# rarer edge case not worth risking that over. If you want this back,
+# it needs the interruption rule paired with a check that the message
+# doesn't already look like a clinic name — not just a bare intent match.
+# ── Broader interruption handling ───────────────────────────────────────
+# The gap that caused this: once ANY form is active, Rasa treats every
+# message as an attempt to fill the slot it's currently asking for (via
+# clinic_name's from_text mapping) — UNLESS a rule explicitly says
+# otherwise. Only recommendation_request had that above. Every other
+# intent — wanting to queue instead of book, checking status, asking for
+# staff, or just backing out — was getting swallowed as a failed
+# "I couldn't find a branch called ..." clinic-name lookup instead of
+# being recognized as the patient wanting something else. This is what
+# made the whole thing feel broken/unconversational rather than just
+# incomplete on one specific case.
+#
+# action_deactivate_loop is a Rasa BUILT-IN default action — no new
+# Python code needed — it cleanly exits whichever form is active before
+# the interruption's own action runs.
+
+# -- appointment_form --
+- rule: Cancel appointment form
   condition:
-    - active_loop: join_queue_form
+    - active_loop: appointment_form
   steps:
-    - intent: recommendation_request
-    - action: action_get_clinic_recommendations
+    - intent: deny
+    - action: action_deactivate_loop
+    - active_loop: null
+    - action: utter_form_cancelled
+
+- rule: Switch to join queue while appointment form active
+  condition:
+    - active_loop: appointment_form
+  steps:
+    - intent: join_queue
+    - action: action_deactivate_loop
+    - active_loop: null
     - action: join_queue_form
     - active_loop: join_queue_form
 
-- rule: Recommend while appointment form is active
+- rule: Check queue status while appointment form active
   condition:
     - active_loop: appointment_form
   steps:
-    - intent: recommendation_request
-    - action: action_get_clinic_recommendations
+    - intent: check_queue_status
+    - action: action_deactivate_loop
+    - active_loop: null
+    - action: action_check_queue_status
+
+- rule: Human assistance while appointment form active
+  condition:
+    - active_loop: appointment_form
+  steps:
+    - intent: human_assistance
+    - action: action_deactivate_loop
+    - active_loop: null
+    - action: action_escalate_to_staff
+
+# -- join_queue_form --
+- rule: Cancel join queue form
+  condition:
+    - active_loop: join_queue_form
+  steps:
+    - intent: deny
+    - action: action_deactivate_loop
+    - active_loop: null
+    - action: utter_form_cancelled
+
+- rule: Switch to book appointment while join queue form active
+  condition:
+    - active_loop: join_queue_form
+  steps:
+    - intent: book_appointment
+    - action: action_deactivate_loop
+    - active_loop: null
     - action: appointment_form
     - active_loop: appointment_form
+
+- rule: Check queue status while join queue form active
+  condition:
+    - active_loop: join_queue_form
+  steps:
+    - intent: check_queue_status
+    - action: action_deactivate_loop
+    - active_loop: null
+    - action: action_check_queue_status
+
+- rule: Human assistance while join queue form active
+  condition:
+    - active_loop: join_queue_form
+  steps:
+    - intent: human_assistance
+    - action: action_deactivate_loop
+    - active_loop: null
+    - action: action_escalate_to_staff
+
+# -- reschedule_form --
+- rule: Cancel reschedule form
+  condition:
+    - active_loop: reschedule_form
+  steps:
+    - intent: deny
+    - action: action_deactivate_loop
+    - active_loop: null
+    - action: utter_form_cancelled
+
+- rule: Check queue status while reschedule form active
+  condition:
+    - active_loop: reschedule_form
+  steps:
+    - intent: check_queue_status
+    - action: action_deactivate_loop
+    - active_loop: null
+    - action: action_check_queue_status
+
+- rule: Human assistance while reschedule form active
+  condition:
+    - active_loop: reschedule_form
+  steps:
+    - intent: human_assistance
+    - action: action_deactivate_loop
+    - active_loop: null
+    - action: action_escalate_to_staff
 
 - rule: Cancel queue
   steps:
@@ -140,11 +255,6 @@ rules:
     - action: action_get_clinic_services
 
 - rule: Clinic recommendation
-  # This rule is only for a free-standing recommendation request. When a
-  # form is active, the dedicated interruption rules above handle it and then
-  # return control to that form.
-  condition:
-    - active_loop: null
   steps:
     - intent: recommendation_request
     - action: action_get_clinic_recommendations
